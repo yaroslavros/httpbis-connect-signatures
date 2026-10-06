@@ -37,9 +37,9 @@ informative:
 
 This document specifies client authentication for HTTP tunnel establishment
 using HTTP Message Signatures. It covers the CONNECT method, extended CONNECT
-in HTTP/2 and HTTP/3, and HTTP/1.1 Upgrade. It defines signature coverage and a
-challenge-response procedure using Accept-Signature with a fresh, single-use
-nonce for each tunnel establishment.
+in HTTP/2 and HTTP/3, and HTTP/1.1 Upgrade. It defines signature coverage and
+replay protection using either a client-generated nonce or a server-provided
+nonce obtained through an Accept-Signature challenge.
 
 --- middle
 
@@ -55,8 +55,9 @@ This document defines such a profile for tunnel establishment using the CONNECT
 method {{!HTTP=RFC9110}}, extended CONNECT in HTTP/2 {{!HTTP2-EXTCONNECT=RFC8441}} and HTTP/3
 {{!HTTP3-EXTCONNECT=RFC9220}}, and HTTP/1.1 Upgrade {{Section 7.8 of HTTP}}. These mechanisms support uses such
 as UDP proxying {{?CONNECT-UDP=RFC9298}} and WebSockets {{?WEBSOCKET=RFC6455}}. The profile specifies
-signature coverage and a challenge-response procedure using Accept-Signature,
-with a fresh, single-use nonce for each tunnel establishment request.
+signature coverage and replay protection for each tunnel establishment request.
+Clients can send unsolicited signatures with client-generated nonces; servers
+can accept these or require a fresh nonce through an Accept-Signature challenge.
 
 One motivating use case is authentication of software workloads at CONNECT
 proxies. WIMSE Workload-to-Workload Authentication with HTTP Signatures
@@ -78,23 +79,24 @@ provide confidentiality or integrity protection for subsequent tunnel traffic.
 
 # Protocol Overview {#overview}
 
-The client sends a tunnel establishment request to the server. The server
-challenges the client using Accept-Signature with a fresh nonce and the required
-signature coverage. The client retries the request with Signature-Input and
-Signature fields, incorporating the supplied nonce. Before accepting the
-request, the server verifies the signature, validates and consumes the
-single-use nonce, and applies its authorization policy.
+The client sends a tunnel establishment request, optionally signed using a
+fresh client-generated nonce. According to its policy, the server can accept
+an unsolicited signature or require a signature using a server-provided nonce.
+If authentication is needed, the server returns an Accept-Signature challenge
+with a fresh nonce and the required signature coverage. The client retries
+with the requested signature. Before accepting a request, the server verifies
+the signature, enforces nonce single use, and applies its authorization policy.
 
 ~~~aasvg
 Client                                       Server
   |                                             |
-  |        Tunnel establishment request         |
+  |     Unsigned or unsolicited signed request  |
   |-------------------------------------------->|
   |                                             |
   |        Accept-Signature challenge           |
   |<--------------------------------------------|
   |                                             |
-  |        Signed request with nonce            |
+  |        Signed request with server nonce     |
   |-------------------------------------------->|
   |                                             |
   |        Successful establishment response    |
@@ -103,18 +105,19 @@ Client                                       Server
   |              Tunnel traffic                 |
   |<===========================================>|
 ~~~
-{: #authentication-flow title="Successful authentication exchange"}
+{: #authentication-flow title="Authentication exchange when a challenge is required"}
 
-Each tunnel establishment requires a fresh challenge. The retry can use a
-different connection; authentication of one request does not authenticate other
-requests on either connection.
+If the server accepts an unsolicited signature, it sends the successful
+establishment response directly. Each establishment requires a fresh nonce.
+Retries can use a different connection; authentication of one request does not
+authenticate other requests on either connection.
 
 
 # Signature Requirements {#signature-requirements}
 
-The server MUST generate an Accept-Signature challenge specifying the required
-signature coverage and a fresh nonce. The client MUST respond with an HTTP
-Message Signature in accordance with {{HTTP-SIG}} and the requirements below.
+The server MUST enforce the signature requirements below, whether the client
+sends an unsolicited signature or responds to an Accept-Signature challenge.
+The client MUST generate the signature in accordance with {{HTTP-SIG}}.
 The Signature-Input and Signature fields MUST be sent in the request header
 section so that authentication can complete before tunnel establishment. A
 signature accepted for authentication MUST satisfy all applicable requirements;
@@ -141,10 +144,12 @@ MUST be covered even when no query is present, using the value defined in
 
 The server MUST require coverage of any additional request fields on which it
 relies to determine client identity, the tunnel destination, or permissions for
-the requested tunnel. It MUST include these components in its Accept-Signature
-challenge. The client MAY include additional signatures to cover other
-components, as described in {{Section 5.2 of HTTP-SIG}}. A challenge MUST NOT
-relax the minimum coverage requirements above.
+the requested tunnel. When issuing a challenge, it MUST include all required
+components in Accept-Signature.
+
+Clients MAY cover components beyond these requirements. When responding to a
+challenge, components not requested by the server can be covered by a separate
+signature, as described in {{Section 5.2 of HTTP-SIG}}.
 
 The `upgrade` component covers the Upgrade field using the field canonicalization
 rules in {{Section 2.1 of HTTP-SIG}}.
@@ -174,15 +179,19 @@ derived from the HTTP/1.1 Upgrade field.
 The signature MUST include the following parameters defined in
 {{Section 2.3 of HTTP-SIG}}:
 
-* `nonce`: the exact nonce value supplied by the server in the Accept-Signature
-  challenge. A client-generated value MUST NOT be substituted.
+* `nonce`: a fresh client-generated value for an unsolicited signature, or the
+  exact value supplied by the server when responding to an Accept-Signature
+  challenge. The client MUST NOT substitute its own value in a challenge response.
 * `created`: the time at which the client generated the signature.
 * `expires`: the signature expiration time, which MUST be later than `created`.
 
-The server MUST enforce the signature validity period as well as the challenge
-lifetime and single-use requirement. A signature's expiration time does not
-extend the lifetime of its challenge. These checks apply when authenticating
-the establishment request, not to the lifetime of the resulting tunnel.
+Client-generated nonces MUST be unpredictable and MUST NOT be reused with the
+same signing key. The server MUST enforce a maximum signature lifetime
+(`expires` minus `created`) and SHOULD keep it short, on the order of minutes.
+It MUST enforce the signature validity period and nonce single use. For a
+challenge response, it MUST also enforce the challenge lifetime; signature
+expiration does not extend that lifetime. These checks apply when
+authenticating the establishment request, not to the resulting tunnel's lifetime.
 
 Additional parameters can be required by the challenge or another applicable
 profile. This document does not mandate `keyid`, `alg`, or a particular `tag`
@@ -191,15 +200,32 @@ value; their use follows {{HTTP-SIG}} and the applicable deployment or profile.
 
 # Authentication Procedure {#authentication-procedure}
 
+## Unsolicited Signatures {#unsolicited-signatures}
+
+A client MAY sign its initial request using a fresh client-generated nonce and
+the requirements in {{signature-requirements}}. Signature selection follows
+the applicable profile or server policy; a particular signature label is not
+required. The server MAY accept the signature if its policy permits unsolicited
+authentication and all checks in {{validating-request}} succeed. Otherwise, it
+can require a server-provided nonce as described below.
+
+Servers that accept both kinds of nonce MUST distinguish challenge responses
+from unsolicited signatures, for example through a recognizable server nonce
+format or retained challenge metadata. An expired or consumed server nonce
+MUST NOT be accepted as a client-generated nonce. If the server cannot
+safely make this distinction, it MUST require a fresh challenge. A policy that
+requires a server-provided nonce MUST NOT fall back to unsolicited authentication.
+
 ## Issuing a Challenge {#issuing-challenge}
 
-For an otherwise acceptable tunnel establishment request that lacks a response
-to a challenge, the server MUST return 403 (Forbidden) with an Accept-Signature
-field. The field MUST contain one dictionary member specifying the signature
-required by this mechanism, using the syntax in {{Section 5.1 of HTTP-SIG}}.
-It MUST specify the coverage required by {{signature-requirements}}, a fresh
-`nonce` value, and the `created` and `expires` parameters in their Boolean true
-form. The response MUST include `Cache-Control: no-store`.
+For an otherwise acceptable tunnel establishment request without a signature,
+or with an unsolicited signature when policy requires a server-provided nonce,
+the server MUST return 403 (Forbidden) with an Accept-Signature field. The field
+MUST contain one dictionary member specifying the signature required by this
+mechanism, using the syntax in {{Section 5.1 of HTTP-SIG}}. It MUST specify the
+coverage required by {{signature-requirements}}, a fresh `nonce` value, and the
+`created` and `expires` parameters in their Boolean true form. The response
+MUST include `Cache-Control: no-store`.
 
 The nonce MUST be unpredictable and unique among challenges that the server
 can still accept. The server MUST assign each challenge a bounded lifetime and
@@ -211,6 +237,8 @@ protocol. This association MUST be protected against modification by the
 client. A challenge MUST NOT be bound to the connection on which it was issued.
 
 ## Responding to a Challenge {#responding-challenge}
+
+Clients MUST support responding to Accept-Signature challenges.
 
 On receiving a 403 response with Accept-Signature, the client MUST check that
 the challenge satisfies {{signature-requirements}} and is compatible with its
@@ -225,32 +253,43 @@ include the supplied nonce and generate `created` and `expires` values as
 specified in {{signature-parameters}}. The retry MAY use the same connection or
 a different connection.
 
-The client MUST NOT use a nonce for more than one establishment attempt. If a
-retry is needed after a signed request fails or its outcome is unknown, the
-client MUST obtain a fresh challenge. Clients MUST limit automatic retries to
-avoid an unbounded challenge-response loop.
+The client MUST NOT reuse a signed request for another establishment attempt.
+If a retry is needed after a signed request fails or its outcome is unknown,
+the client MUST generate a fresh client nonce or obtain a fresh challenge, as
+permitted by server policy. A client challenged to use a server nonce MUST
+respond to that challenge or fail the attempt. Clients MUST limit automatic
+retries to avoid an unbounded challenge-response loop.
 
 ## Validating and Accepting a Request {#validating-request}
 
 Before accepting a signed request, the server MUST:
 
-1. Identify the issued challenge using the nonce and select the signature with
-   the label requested by that challenge.
-1. Verify that the challenge is unexpired and applies to the request's method,
-   target, and tunnel protocol.
-1. Check the signature coverage and parameters against both the issued
-   challenge and {{signature-requirements}}, and verify the signature according
-   to {{Section 3.2 of HTTP-SIG}}.
-1. Check that the current time falls within the signature validity period.
-   The server MAY allow a small, bounded tolerance for clock skew.
-1. Atomically check that the nonce is unused and mark it as consumed. If it has
-   already been consumed, authentication MUST fail.
+1. Select the signature under the applicable profile or policy. For a challenge
+   response, identify the issued challenge using the nonce, select the requested
+   signature label, and verify that the challenge is unexpired and applies to
+   the request's method, target, and tunnel protocol. For an unsolicited
+   signature, verify that server policy permits its use.
+1. Check the signature coverage and parameters against {{signature-requirements}}
+   and any issued challenge, and verify the signature according to
+   {{Section 3.2 of HTTP-SIG}}.
+1. Check that the signature lifetime does not exceed the server's maximum and
+   that the current time falls within the signature validity period. The server
+   MAY allow a small, bounded tolerance for clock skew.
+1. Atomically check that the nonce is unused and record its consumption. For a
+   client-generated nonce, the replay record MUST be scoped to the verified
+   signing key and nonce value, independent of signature labels, key identifier
+   aliases, or request targets. For a server-provided nonce, the challenge MUST
+   be consumed at most once. If already consumed, authentication MUST fail.
 
 Single-use enforcement MUST apply across all connections and server instances
-that can accept the nonce. If that enforcement cannot be guaranteed, the
-server MUST NOT accept the request. An invalid signature MUST NOT consume the
-nonce. Once consumed, a nonce MUST NOT become usable again, including when
-authorization or subsequent tunnel establishment fails.
+that can accept the signature. Client nonce records MUST be retained through
+signature expiration, including any clock skew tolerance. Server nonce
+consumption MUST be recorded for the entire remaining challenge lifetime.
+If single-use enforcement cannot be guaranteed, the server MUST NOT accept
+the request. An invalid signature MUST NOT create a replay record or consume
+a challenge. Once consumed, a nonce MUST NOT become usable again during its
+acceptance window, including when authorization or subsequent tunnel
+establishment fails.
 
 After authentication, the server applies its authorization policy. It MUST NOT
 open the requested upstream connection, forward tunnel traffic, or send a
@@ -262,10 +301,11 @@ response for HTTP/1.1 Upgrade. Authentication applies only to this request.
 ## Error Handling {#authentication-errors}
 
 Malformed authentication fields SHOULD result in 400 (Bad Request). For
-well-formed requests, failed authentication, including an invalid signature or
-an unknown, expired, or consumed nonce, MUST result in 403 (Forbidden). The
-server MAY include a fresh Accept-Signature challenge if another attempt could
-succeed.
+well-formed requests, failed authentication, including an invalid signature,
+a replayed client nonce, or an expired or consumed server nonce, MUST result
+in 403 (Forbidden). The server MAY include a fresh Accept-Signature
+challenge if another attempt could succeed, and MUST do so in the cases
+specified in {{issuing-challenge}}.
 
 If authentication succeeds but authorization fails, the server MUST return 403
 without an Accept-Signature challenge. A client receiving a 403 response without
@@ -278,9 +318,10 @@ applicable tunnel protocol.
 
 These examples show successful exchanges at 2026-10-06T00:00:00Z. All
 request signatures use Ed25519 and expire 60 seconds later; the server
-accepts each challenge during that interval. Keys and nonce values are
-for illustration only and are not suitable for deployment. Long lines
-are folded using {{?FOLDING=RFC8792}}; folding is not part of the messages.
+accepts signatures and any challenges during that interval. Keys and
+nonce values are for illustration only and are not suitable for
+deployment. Long lines are folded using {{?FOLDING=RFC8792}}; folding is
+not part of the messages.
 
 The client public key used in all three examples is:
 
@@ -324,33 +365,12 @@ token's protected header is:
 ~~~
 {: #example-wit-header title="WIT protected header"}
 
-Editorial note: this example anticipates changes to WIMSE permitting
-server-provided nonces and omitting `@path` and `@query` for standard
-CONNECT. It is not fully conformant to draft-ietf-wimse-http-signature-07.
+Editorial note: this example anticipates changes to WIMSE omitting
+`@path` and `@query` for standard CONNECT. It is not fully conformant to
+draft-ietf-wimse-http-signature-07.
 
-The client first sends:
-
-~~~
-CONNECT service.example:443 HTTP/1.1
-Host: service.example:443
-~~~
-{: #example-connect-initial title="Initial CONNECT request"}
-
-The proxy challenges the client:
-
-~~~
-NOTE: '\' line wrapping per RFC 8792
-
-HTTP/1.1 403 Forbidden
-Cache-Control: no-store
-Content-Length: 0
-Accept-Signature: sig1=("@method" "@authority" \
-  "workload-identity-token");nonce="8R2YsD5mrtrsiLPZPXt07_6jex3LLjNq";\
-  created;expires;tag="wimse-workload-to-workload"
-~~~
-{: #example-connect-challenge title="CONNECT challenge"}
-
-The client retries with its WIT and signature. The `wimse-aud` value is
+The proxy permits unsolicited signatures. The client sends its WIT and
+signature with a fresh client-generated nonce. The `wimse-aud` value is
 the proxy identity configured for this WIMSE deployment. The signing key
 and algorithm come from the WIT, so `keyid` and `alg` are absent from
 Signature-Input. Response signing is not requested.
@@ -370,15 +390,16 @@ Workload-Identity-Token: eyJhbGciOiJFZDI1NTE5IiwidHlwIjoid2l0K2p3dCIsIm\
   g1A8gIK6Ag
 Signature-Input: sig1=("@method" "@authority" \
   "workload-identity-token");created=1791244800;expires=1791244860;\
-  nonce="8R2YsD5mrtrsiLPZPXt07_6jex3LLjNq";\
+  nonce="sGcptixoRlVhKrE6YIc1oqzQP3vBoc64";\
   tag="wimse-workload-to-workload";wimse-aud="https://proxy.example"
-Signature: sig1=:DIPNsG7AHT3Z8bspv3q6Oy/paFM4ZwKkNc7INxqrq/h19/MSwgM1k/\
-  fMxdqWxUM91wwcYnIIJn35UP6IqcAyDg==:
+Signature: sig1=:SCnWV6Cf2nA72ZxD21Mmhts1cFO3T3aLBCFTaPghZBhOEmqV+x5zIA\
+  gOUUOd0szJNZ1hmsprco67FGouQ0E8Bg==:
 ~~~
 {: #example-connect-signed title="Signed CONNECT request"}
 
-After validating the WIT and request signature and authorizing the tunnel,
-the proxy responds:
+The proxy validates the WIT, audience, and request signature, atomically
+records the client nonce under the verified signing key, and authorizes
+the tunnel. It responds without an Accept-Signature exchange:
 
 ~~~
 HTTP/1.1 200 Connection Established
@@ -391,7 +412,8 @@ This example uses CONNECT-UDP {{CONNECT-UDP}} over HTTP/2. The same
 fields and signature apply to HTTP/3. Pseudo-header fields and header
 fields are shown in decoded form; connection setup and protocol settings
 negotiation are omitted. The proxy maps `client-key` to the client
-public key in {{example-client-key}} through local configuration.
+public key in {{example-client-key}} through local configuration and
+requires a server-provided nonce.
 
 The client requests a UDP tunnel to `192.0.2.1:443`:
 
@@ -453,21 +475,31 @@ A client opens a WebSocket at `ws://chat.example/socket`. The server
 maps `client-key` to the public key in {{example-client-key}}. The
 handshake follows {{WEBSOCKET}} and additionally covers its key and
 version fields. This example assumes a client capable of setting the
-signature fields.
+signature fields. The server requires a server-provided nonce even for
+a valid unsolicited signature.
 
-The initial request is:
+The client initially sends an unsolicited signature with its own nonce:
 
 ~~~
+NOTE: '\' line wrapping per RFC 8792
+
 GET /socket HTTP/1.1
 Host: chat.example
 Upgrade: websocket
 Connection: Upgrade
 Sec-WebSocket-Key: dHVubmVsLWV4YW1wbGUtMQ==
 Sec-WebSocket-Version: 13
+Signature-Input: sig1=("@method" "@authority" "@scheme" "@path" \
+  "@query" "upgrade" "sec-websocket-key" "sec-websocket-version");\
+  created=1791244800;expires=1791244860;\
+  nonce="tldju9XaHCa61VGB2yTC8vWw9dsm8oDs";keyid="client-key";\
+  alg="ed25519"
+Signature: sig1=:+TiZgHUrj8II+HLQAlEOfzR67zpxu1iop6i6oLlGlnWzehK0WEgTPn\
+  juUHlI7baWRnjPWljilteYo/rUU5/BAg==:
 ~~~
-{: #example-ws-initial title="Initial WebSocket request"}
+{: #example-ws-initial title="Unsolicited signed WebSocket request"}
 
-The server challenges the client:
+The server requires a fresh server nonce and challenges the client:
 
 ~~~
 NOTE: '\' line wrapping per RFC 8792
@@ -482,7 +514,7 @@ Accept-Signature: sig1=("@method" "@authority" "@scheme" "@path" \
 ~~~
 {: #example-ws-challenge title="WebSocket challenge"}
 
-The client retries with a signed request:
+The client retries with the server-provided nonce and a new signature:
 
 ~~~
 NOTE: '\' line wrapping per RFC 8792
@@ -523,11 +555,21 @@ requested tunnel. Components used in that decision need to be covered as
 specified in {{covered-components}}. Uncovered fields can be modified without
 invalidating the signature.
 
-Replay protection depends on both challenge expiry and atomic single-use
-enforcement across all server instances that accept a nonce. An expiring,
-self-contained challenge does not by itself prevent reuse before expiry.
-Loss of replay state must not cause a consumed challenge to become acceptable
-again; affected challenges need to be rejected.
+Replay protection depends on bounded signature lifetimes and atomic single-use
+enforcement across all server instances that accept a signature. Random client
+nonces do not prevent replay without this state. Server-provided nonces also
+bind signatures to fresh challenges, but expiring, self-contained challenges
+still require single-use enforcement. Loss or eviction of replay state MUST
+NOT allow previously accepted requests to be accepted again; affected requests
+MUST be rejected until that protection can be guaranteed.
+
+For standard CONNECT, `@authority` identifies the tunnel destination, not the
+proxy. An unsolicited signature could therefore be accepted at another proxy
+that trusts the same key and maintains independent replay state. Deployments
+accepting unsolicited signatures at such proxies need recipient binding from
+an applicable profile, such as WIMSE's `wimse-aud`, or keys whose acceptance is
+restricted to the intended recipient. This document defines no additional
+audience parameter.
 
 This mechanism does not authenticate the server or protect tunnel traffic.
 Without a protected transport, credentials and request details are visible,
@@ -543,11 +585,10 @@ on keys and algorithms, rather than treating Accept-Signature as authority to
 use arbitrary credentials. Servers need to enforce their own coverage and
 algorithm requirements even if a challenge has been altered in transit.
 
-Challenge issuance and signature verification can be used to exhaust server
-resources. Servers SHOULD bound outstanding challenge state and rate-limit
-authentication attempts. Discarding challenge state to enforce those limits
-must cause the affected challenges to be rejected, not accepted without replay
-checks.
+Challenge issuance, signature verification, and replay records can be used to
+exhaust server resources. Servers SHOULD bound authentication state and
+rate-limit authentication attempts. Resource limits MUST NOT cause requests
+to be accepted without replay checks.
 
 
 # IANA Considerations {#iana}
