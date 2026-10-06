@@ -19,35 +19,35 @@
 # Change the file extension to match the format (.xml for XML, etc...)
 #
 ###
-title: "TODO - Your title"
-abbrev: "TODO - Abbreviation"
-category: info
+title: "Authenticating HTTP Tunnels with HTTP Message Signatures"
+abbrev: "HTTP Tunnels Auth with Signatures"
+category: std
 
-docname: draft-todo-yourname-protocol-latest
+docname: draft-rosomakho-httpbis-tunnels-signatures-latest
 submissiontype: IETF  # also: "independent", "editorial", "IAB", or "IRTF"
 number:
 date:
 consensus: true
 v: 3
-area: AREA
-workgroup: WG Working Group
+area: "Web and Internet Transport"
+workgroup: "HTTP"
 keyword:
- - next generation
- - unicorn
- - AI-native
+ - http
+ - tunnels
+ - signatures
 venue:
-  group: WG
-  type: Working Group
-  mail: WG@example.com
-  arch: https://example.com/WG
-  github: USER/REPO
-  latest: https://example.com/LATEST
+  group: "HTTP"
+  type: "Working Group"
+  mail: "ietf-http-wg@w3.org"
+  arch: "https://lists.w3.org/Archives/Public/ietf-http-wg/"
+  github: "yaroslavros/httpbis-connect-signatures"
+  latest: "https://yaroslavros.github.io/httpbis-connect-signatures/draft-rosomakho-httpbis-tunnels-signatures.html"
 
 author:
  -
-    fullname: Your Name Here
-    organization: Your Organization Here
-    email: your.email@example.com
+    fullname: Yaroslav Rosomakho
+    organization: Zscaler
+    email: yrosomakho@zscaler.com
 
 normative:
 
