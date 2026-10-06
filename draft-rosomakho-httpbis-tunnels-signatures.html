@@ -9,9 +9,9 @@
 <meta content="
        This document specifies client authentication for HTTP tunnel establishment
 using HTTP Message Signatures. It covers the CONNECT method, extended CONNECT
-in HTTP/2 and HTTP/3, and HTTP/1.1 Upgrade. It defines signature coverage and a
-challenge-response procedure using Accept-Signature with a fresh, single-use
-nonce for each tunnel establishment. 
+in HTTP/2 and HTTP/3, and HTTP/1.1 Upgrade. It defines signature coverage and
+replay protection using either a client-generated nonce or a server-provided
+nonce obtained through an Accept-Signature challenge. 
     " name="description">
 <meta content="xml2rfc 3.34.1" name="generator">
 <meta content="http" name="keyword">
@@ -1084,9 +1084,9 @@ svg {
       <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
 <p id="section-abstract-1">This document specifies client authentication for HTTP tunnel establishment
 using HTTP Message Signatures. It covers the CONNECT method, extended CONNECT
-in HTTP/2 and HTTP/3, and HTTP/1.1 Upgrade. It defines signature coverage and a
-challenge-response procedure using Accept-Signature with a fresh, single-use
-nonce for each tunnel establishment.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+in HTTP/2 and HTTP/3, and HTTP/1.1 Upgrade. It defines signature coverage and
+replay protection using either a client-generated nonce or a server-provided
+nonce obtained through an Accept-Signature challenge.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
 </section>
 <section class="note rfcEditorRemove" id="section-note.1">
       <h2 id="name-about-this-document">
@@ -1178,16 +1178,19 @@ nonce for each tunnel establishment.<a href="#section-abstract-1" class="pilcrow
             <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-authentication-procedure" class="internal xref">Authentication Procedure</a></p>
 <ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.1">
-                <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-issuing-a-challenge" class="internal xref">Issuing a Challenge</a></p>
+                <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-unsolicited-signatures" class="internal xref">Unsolicited Signatures</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2">
-                <p id="section-toc.1-1.5.2.2.1"><a href="#section-5.2" class="auto internal xref">5.2</a>.  <a href="#name-responding-to-a-challenge" class="internal xref">Responding to a Challenge</a></p>
+                <p id="section-toc.1-1.5.2.2.1"><a href="#section-5.2" class="auto internal xref">5.2</a>.  <a href="#name-issuing-a-challenge" class="internal xref">Issuing a Challenge</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.3">
-                <p id="section-toc.1-1.5.2.3.1"><a href="#section-5.3" class="auto internal xref">5.3</a>.  <a href="#name-validating-and-accepting-a-" class="internal xref">Validating and Accepting a Request</a></p>
+                <p id="section-toc.1-1.5.2.3.1"><a href="#section-5.3" class="auto internal xref">5.3</a>.  <a href="#name-responding-to-a-challenge" class="internal xref">Responding to a Challenge</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.4">
-                <p id="section-toc.1-1.5.2.4.1"><a href="#section-5.4" class="auto internal xref">5.4</a>.  <a href="#name-error-handling" class="internal xref">Error Handling</a></p>
+                <p id="section-toc.1-1.5.2.4.1"><a href="#section-5.4" class="auto internal xref">5.4</a>.  <a href="#name-validating-and-accepting-a-" class="internal xref">Validating and Accepting a Request</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.5">
+                <p id="section-toc.1-1.5.2.5.1"><a href="#section-5.5" class="auto internal xref">5.5</a>.  <a href="#name-error-handling" class="internal xref">Error Handling</a></p>
 </li>
             </ul>
 </li>
@@ -1246,8 +1249,9 @@ cover and the verification requirements for a particular application.<a href="#s
 method <span>[<a href="#HTTP" class="cite xref">HTTP</a>]</span>, extended CONNECT in HTTP/2 <span>[<a href="#HTTP2-EXTCONNECT" class="cite xref">HTTP2-EXTCONNECT</a>]</span> and HTTP/3
 <span>[<a href="#HTTP3-EXTCONNECT" class="cite xref">HTTP3-EXTCONNECT</a>]</span>, and HTTP/1.1 Upgrade <span><a href="https://rfc-editor.org/rfc/rfc9110#section-7.8" class="relref">Section 7.8</a> of [<a href="#HTTP" class="cite xref">HTTP</a>]</span>. These mechanisms support uses such
 as UDP proxying <span>[<a href="#CONNECT-UDP" class="cite xref">CONNECT-UDP</a>]</span> and WebSockets <span>[<a href="#WEBSOCKET" class="cite xref">WEBSOCKET</a>]</span>. The profile specifies
-signature coverage and a challenge-response procedure using Accept-Signature,
-with a fresh, single-use nonce for each tunnel establishment request.<a href="#section-1-2" class="pilcrow">¶</a></p>
+signature coverage and replay protection for each tunnel establishment request.
+Clients can send unsolicited signatures with client-generated nonces; servers
+can accept these or require a fresh nonce through an Accept-Signature challenge.<a href="#section-1-2" class="pilcrow">¶</a></p>
 <p id="section-1-3">One motivating use case is authentication of software workloads at CONNECT
 proxies. WIMSE Workload-to-Workload Authentication with HTTP Signatures
 <span>[<a href="#WIMSE-HTTPSIG" class="cite xref">WIMSE-HTTPSIG</a>]</span> uses workload credentials and HTTP Message
@@ -1276,13 +1280,14 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
       <h2 id="name-protocol-overview">
 <a href="#section-3" class="section-number selfRef">3. </a><a href="#name-protocol-overview" class="section-name selfRef">Protocol Overview</a>
       </h2>
-<p id="section-3-1">The client sends a tunnel establishment request to the server. The server
-challenges the client using Accept-Signature with a fresh nonce and the required
-signature coverage. The client retries the request with Signature-Input and
-Signature fields, incorporating the supplied nonce. Before accepting the
-request, the server verifies the signature, validates and consumes the
-single-use nonce, and applies its authorization policy.<a href="#section-3-1" class="pilcrow">¶</a></p>
-<span id="name-successful-authentication-e"></span><div id="authentication-flow">
+<p id="section-3-1">The client sends a tunnel establishment request, optionally signed using a
+fresh client-generated nonce. According to its policy, the server can accept
+an unsolicited signature or require a signature using a server-provided nonce.
+If authentication is needed, the server returns an Accept-Signature challenge
+with a fresh nonce and the required signature coverage. The client retries
+with the requested signature. Before accepting a request, the server verifies
+the signature, enforces nonce single use, and applies its authorization policy.<a href="#section-3-1" class="pilcrow">¶</a></p>
+<span id="name-authentication-exchange-whe"></span><div id="authentication-flow">
 <figure id="figure-1">
         <div id="section-3-2.1">
           <div class="alignLeft art-svg artwork" id="section-3-2.1.1">
@@ -1304,15 +1309,18 @@ single-use nonce, and applies its authorization policy.<a href="#section-3-1" cl
               <g class="text">
                 <text x="28" y="36">Client</text>
                 <text x="388" y="36">Server</text>
-                <text x="116" y="68">Tunnel</text>
-                <text x="200" y="68">establishment</text>
-                <text x="288" y="68">request</text>
+                <text x="100" y="68">Unsigned</text>
+                <text x="148" y="68">or</text>
+                <text x="208" y="68">unsolicited</text>
+                <text x="284" y="68">signed</text>
+                <text x="344" y="68">request</text>
                 <text x="156" y="116">Accept-Signature</text>
                 <text x="264" y="116">challenge</text>
                 <text x="116" y="164">Signed</text>
                 <text x="176" y="164">request</text>
                 <text x="228" y="164">with</text>
-                <text x="272" y="164">nonce</text>
+                <text x="276" y="164">server</text>
+                <text x="328" y="164">nonce</text>
                 <text x="132" y="212">Successful</text>
                 <text x="232" y="212">establishment</text>
                 <text x="324" y="212">response</text>
@@ -1323,12 +1331,13 @@ single-use nonce, and applies its authorization policy.<a href="#section-3-1" cl
 </div>
 </div>
 <figcaption><a href="#figure-1" class="selfRef">Figure 1</a>:
-<a href="#name-successful-authentication-e" class="selfRef">Successful authentication exchange</a>
+<a href="#name-authentication-exchange-whe" class="selfRef">Authentication exchange when a challenge is required</a>
         </figcaption></figure>
 </div>
-<p id="section-3-3">Each tunnel establishment requires a fresh challenge. The retry can use a
-different connection; authentication of one request does not authenticate other
-requests on either connection.<a href="#section-3-3" class="pilcrow">¶</a></p>
+<p id="section-3-3">If the server accepts an unsolicited signature, it sends the successful
+establishment response directly. Each establishment requires a fresh nonce.
+Retries can use a different connection; authentication of one request does not
+authenticate other requests on either connection.<a href="#section-3-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="signature-requirements">
@@ -1336,9 +1345,9 @@ requests on either connection.<a href="#section-3-3" class="pilcrow">¶</a></p>
       <h2 id="name-signature-requirements">
 <a href="#section-4" class="section-number selfRef">4. </a><a href="#name-signature-requirements" class="section-name selfRef">Signature Requirements</a>
       </h2>
-<p id="section-4-1">The server <span class="bcp14">MUST</span> generate an Accept-Signature challenge specifying the required
-signature coverage and a fresh nonce. The client <span class="bcp14">MUST</span> respond with an HTTP
-Message Signature in accordance with <span>[<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span> and the requirements below.
+<p id="section-4-1">The server <span class="bcp14">MUST</span> enforce the signature requirements below, whether the client
+sends an unsolicited signature or responds to an Accept-Signature challenge.
+The client <span class="bcp14">MUST</span> generate the signature in accordance with <span>[<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>.
 The Signature-Input and Signature fields <span class="bcp14">MUST</span> be sent in the request header
 section so that authentication can complete before tunnel establishment. A
 signature accepted for authentication <span class="bcp14">MUST</span> satisfy all applicable requirements;
@@ -1388,12 +1397,13 @@ destination information conveyed in its path or query. The <code>@query</code> c
 <span><a href="https://rfc-editor.org/rfc/rfc9421#section-2.2.7" class="relref">Section 2.2.7</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>.<a href="#section-4.1-3" class="pilcrow">¶</a></p>
 <p id="section-4.1-4">The server <span class="bcp14">MUST</span> require coverage of any additional request fields on which it
 relies to determine client identity, the tunnel destination, or permissions for
-the requested tunnel. It <span class="bcp14">MUST</span> include these components in its Accept-Signature
-challenge. The client <span class="bcp14">MAY</span> include additional signatures to cover other
-components, as described in <span><a href="https://rfc-editor.org/rfc/rfc9421#section-5.2" class="relref">Section 5.2</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>. A challenge <span class="bcp14">MUST NOT</span>
-relax the minimum coverage requirements above.<a href="#section-4.1-4" class="pilcrow">¶</a></p>
-<p id="section-4.1-5">The <code>upgrade</code> component covers the Upgrade field using the field canonicalization
-rules in <span><a href="https://rfc-editor.org/rfc/rfc9421#section-2.1" class="relref">Section 2.1</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>.<a href="#section-4.1-5" class="pilcrow">¶</a></p>
+the requested tunnel. When issuing a challenge, it <span class="bcp14">MUST</span> include all required
+components in Accept-Signature.<a href="#section-4.1-4" class="pilcrow">¶</a></p>
+<p id="section-4.1-5">Clients <span class="bcp14">MAY</span> cover components beyond these requirements. When responding to a
+challenge, components not requested by the server can be covered by a separate
+signature, as described in <span><a href="https://rfc-editor.org/rfc/rfc9421#section-5.2" class="relref">Section 5.2</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>.<a href="#section-4.1-5" class="pilcrow">¶</a></p>
+<p id="section-4.1-6">The <code>upgrade</code> component covers the Upgrade field using the field canonicalization
+rules in <span><a href="https://rfc-editor.org/rfc/rfc9421#section-2.1" class="relref">Section 2.1</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>.<a href="#section-4.1-6" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="protocol-component">
@@ -1429,8 +1439,9 @@ derived from the HTTP/1.1 Upgrade field.<a href="#section-4.2-3" class="pilcrow"
 <span><a href="https://rfc-editor.org/rfc/rfc9421#section-2.3" class="relref">Section 2.3</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>:<a href="#section-4.3-1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-4.3-2.1">
-            <p id="section-4.3-2.1.1"><code>nonce</code>: the exact nonce value supplied by the server in the Accept-Signature
-challenge. A client-generated value <span class="bcp14">MUST NOT</span> be substituted.<a href="#section-4.3-2.1.1" class="pilcrow">¶</a></p>
+            <p id="section-4.3-2.1.1"><code>nonce</code>: a fresh client-generated value for an unsolicited signature, or the
+exact value supplied by the server when responding to an Accept-Signature
+challenge. The client <span class="bcp14">MUST NOT</span> substitute its own value in a challenge response.<a href="#section-4.3-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-4.3-2.2">
             <p id="section-4.3-2.2.1"><code>created</code>: the time at which the client generated the signature.<a href="#section-4.3-2.2.1" class="pilcrow">¶</a></p>
@@ -1439,10 +1450,13 @@ challenge. A client-generated value <span class="bcp14">MUST NOT</span> be subst
             <p id="section-4.3-2.3.1"><code>expires</code>: the signature expiration time, which <span class="bcp14">MUST</span> be later than <code>created</code>.<a href="#section-4.3-2.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-4.3-3">The server <span class="bcp14">MUST</span> enforce the signature validity period as well as the challenge
-lifetime and single-use requirement. A signature's expiration time does not
-extend the lifetime of its challenge. These checks apply when authenticating
-the establishment request, not to the lifetime of the resulting tunnel.<a href="#section-4.3-3" class="pilcrow">¶</a></p>
+<p id="section-4.3-3">Client-generated nonces <span class="bcp14">MUST</span> be unpredictable and <span class="bcp14">MUST NOT</span> be reused with the
+same signing key. The server <span class="bcp14">MUST</span> enforce a maximum signature lifetime
+(<code>expires</code> minus <code>created</code>) and <span class="bcp14">SHOULD</span> keep it short, on the order of minutes.
+It <span class="bcp14">MUST</span> enforce the signature validity period and nonce single use. For a
+challenge response, it <span class="bcp14">MUST</span> also enforce the challenge lifetime; signature
+expiration does not extend that lifetime. These checks apply when
+authenticating the establishment request, not to the resulting tunnel's lifetime.<a href="#section-4.3-3" class="pilcrow">¶</a></p>
 <p id="section-4.3-4">Additional parameters can be required by the challenge or another applicable
 profile. This document does not mandate <code>keyid</code>, <code>alg</code>, or a particular <code>tag</code>
 value; their use follows <span>[<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span> and the applicable deployment or profile.<a href="#section-4.3-4" class="pilcrow">¶</a></p>
@@ -1455,106 +1469,137 @@ value; their use follows <span>[<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</
       <h2 id="name-authentication-procedure">
 <a href="#section-5" class="section-number selfRef">5. </a><a href="#name-authentication-procedure" class="section-name selfRef">Authentication Procedure</a>
       </h2>
-<div id="issuing-challenge">
+<div id="unsolicited-signatures">
 <section id="section-5.1">
-        <h3 id="name-issuing-a-challenge">
-<a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-issuing-a-challenge" class="section-name selfRef">Issuing a Challenge</a>
+        <h3 id="name-unsolicited-signatures">
+<a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-unsolicited-signatures" class="section-name selfRef">Unsolicited Signatures</a>
         </h3>
-<p id="section-5.1-1">For an otherwise acceptable tunnel establishment request that lacks a response
-to a challenge, the server <span class="bcp14">MUST</span> return 403 (Forbidden) with an Accept-Signature
-field. The field <span class="bcp14">MUST</span> contain one dictionary member specifying the signature
-required by this mechanism, using the syntax in <span><a href="https://rfc-editor.org/rfc/rfc9421#section-5.1" class="relref">Section 5.1</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>.
-It <span class="bcp14">MUST</span> specify the coverage required by <a href="#signature-requirements" class="auto internal xref">Section 4</a>, a fresh
-<code>nonce</code> value, and the <code>created</code> and <code>expires</code> parameters in their Boolean true
-form. The response <span class="bcp14">MUST</span> include <code>Cache-Control: no-store</code>.<a href="#section-5.1-1" class="pilcrow">¶</a></p>
-<p id="section-5.1-2">The nonce <span class="bcp14">MUST</span> be unpredictable and unique among challenges that the server
+<p id="section-5.1-1">A client <span class="bcp14">MAY</span> sign its initial request using a fresh client-generated nonce and
+the requirements in <a href="#signature-requirements" class="auto internal xref">Section 4</a>. Signature selection follows
+the applicable profile or server policy; a particular signature label is not
+required. The server <span class="bcp14">MAY</span> accept the signature if its policy permits unsolicited
+authentication and all checks in <a href="#validating-request" class="auto internal xref">Section 5.4</a> succeed. Otherwise, it
+can require a server-provided nonce as described below.<a href="#section-5.1-1" class="pilcrow">¶</a></p>
+<p id="section-5.1-2">Servers that accept both kinds of nonce <span class="bcp14">MUST</span> distinguish challenge responses
+from unsolicited signatures, for example through a recognizable server nonce
+format or retained challenge metadata. An expired or consumed server nonce
+<span class="bcp14">MUST NOT</span> be accepted as a client-generated nonce. If the server cannot
+safely make this distinction, it <span class="bcp14">MUST</span> require a fresh challenge. A policy that
+requires a server-provided nonce <span class="bcp14">MUST NOT</span> fall back to unsolicited authentication.<a href="#section-5.1-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="issuing-challenge">
+<section id="section-5.2">
+        <h3 id="name-issuing-a-challenge">
+<a href="#section-5.2" class="section-number selfRef">5.2. </a><a href="#name-issuing-a-challenge" class="section-name selfRef">Issuing a Challenge</a>
+        </h3>
+<p id="section-5.2-1">For an otherwise acceptable tunnel establishment request without a signature,
+or with an unsolicited signature when policy requires a server-provided nonce,
+the server <span class="bcp14">MUST</span> return 403 (Forbidden) with an Accept-Signature field. The field
+<span class="bcp14">MUST</span> contain one dictionary member specifying the signature required by this
+mechanism, using the syntax in <span><a href="https://rfc-editor.org/rfc/rfc9421#section-5.1" class="relref">Section 5.1</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>. It <span class="bcp14">MUST</span> specify the
+coverage required by <a href="#signature-requirements" class="auto internal xref">Section 4</a>, a fresh <code>nonce</code> value, and the
+<code>created</code> and <code>expires</code> parameters in their Boolean true form. The response
+<span class="bcp14">MUST</span> include <code>Cache-Control: no-store</code>.<a href="#section-5.2-1" class="pilcrow">¶</a></p>
+<p id="section-5.2-2">The nonce <span class="bcp14">MUST</span> be unpredictable and unique among challenges that the server
 can still accept. The server <span class="bcp14">MUST</span> assign each challenge a bounded lifetime and
-<span class="bcp14">SHOULD</span> keep that lifetime short, on the order of minutes.<a href="#section-5.1-2" class="pilcrow">¶</a></p>
-<p id="section-5.1-3">The server <span class="bcp14">MUST</span> associate the nonce with the requested signature label,
+<span class="bcp14">SHOULD</span> keep that lifetime short, on the order of minutes.<a href="#section-5.2-2" class="pilcrow">¶</a></p>
+<p id="section-5.2-3">The server <span class="bcp14">MUST</span> associate the nonce with the requested signature label,
 coverage, parameters, expiration, and the request's method, target, and tunnel
 protocol. This association <span class="bcp14">MUST</span> be protected against modification by the
-client. A challenge <span class="bcp14">MUST NOT</span> be bound to the connection on which it was issued.<a href="#section-5.1-3" class="pilcrow">¶</a></p>
+client. A challenge <span class="bcp14">MUST NOT</span> be bound to the connection on which it was issued.<a href="#section-5.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="responding-challenge">
-<section id="section-5.2">
+<section id="section-5.3">
         <h3 id="name-responding-to-a-challenge">
-<a href="#section-5.2" class="section-number selfRef">5.2. </a><a href="#name-responding-to-a-challenge" class="section-name selfRef">Responding to a Challenge</a>
+<a href="#section-5.3" class="section-number selfRef">5.3. </a><a href="#name-responding-to-a-challenge" class="section-name selfRef">Responding to a Challenge</a>
         </h3>
-<p id="section-5.2-1">On receiving a 403 response with Accept-Signature, the client <span class="bcp14">MUST</span> check that
+<p id="section-5.3-1">Clients <span class="bcp14">MUST</span> support responding to Accept-Signature challenges.<a href="#section-5.3-1" class="pilcrow">¶</a></p>
+<p id="section-5.3-2">On receiving a 403 response with Accept-Signature, the client <span class="bcp14">MUST</span> check that
 the challenge satisfies <a href="#signature-requirements" class="auto internal xref">Section 4</a> and is compatible with its
 signing policy. If it cannot satisfy the challenge, it <span class="bcp14">MUST</span> fail the
-establishment attempt rather than retry with weaker coverage or parameters.<a href="#section-5.2-1" class="pilcrow">¶</a></p>
-<p id="section-5.2-2">The client retries the establishment request with the same method, target, and
+establishment attempt rather than retry with weaker coverage or parameters.<a href="#section-5.3-2" class="pilcrow">¶</a></p>
+<p id="section-5.3-3">The client retries the establishment request with the same method, target, and
 tunnel protocol. It <span class="bcp14">MUST</span> generate the requested signature following
 <span><a href="https://rfc-editor.org/rfc/rfc9421#section-5.2" class="relref">Section 5.2</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>, using the same signature label and exact set of
 component identifiers, including their parameters, as the challenge. It <span class="bcp14">MUST</span>
 include the supplied nonce and generate <code>created</code> and <code>expires</code> values as
 specified in <a href="#signature-parameters" class="auto internal xref">Section 4.3</a>. The retry <span class="bcp14">MAY</span> use the same connection or
-a different connection.<a href="#section-5.2-2" class="pilcrow">¶</a></p>
-<p id="section-5.2-3">The client <span class="bcp14">MUST NOT</span> use a nonce for more than one establishment attempt. If a
-retry is needed after a signed request fails or its outcome is unknown, the
-client <span class="bcp14">MUST</span> obtain a fresh challenge. Clients <span class="bcp14">MUST</span> limit automatic retries to
-avoid an unbounded challenge-response loop.<a href="#section-5.2-3" class="pilcrow">¶</a></p>
+a different connection.<a href="#section-5.3-3" class="pilcrow">¶</a></p>
+<p id="section-5.3-4">The client <span class="bcp14">MUST NOT</span> reuse a signed request for another establishment attempt.
+If a retry is needed after a signed request fails or its outcome is unknown,
+the client <span class="bcp14">MUST</span> generate a fresh client nonce or obtain a fresh challenge, as
+permitted by server policy. A client challenged to use a server nonce <span class="bcp14">MUST</span>
+respond to that challenge or fail the attempt. Clients <span class="bcp14">MUST</span> limit automatic
+retries to avoid an unbounded challenge-response loop.<a href="#section-5.3-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="validating-request">
-<section id="section-5.3">
+<section id="section-5.4">
         <h3 id="name-validating-and-accepting-a-">
-<a href="#section-5.3" class="section-number selfRef">5.3. </a><a href="#name-validating-and-accepting-a-" class="section-name selfRef">Validating and Accepting a Request</a>
+<a href="#section-5.4" class="section-number selfRef">5.4. </a><a href="#name-validating-and-accepting-a-" class="section-name selfRef">Validating and Accepting a Request</a>
         </h3>
-<p id="section-5.3-1">Before accepting a signed request, the server <span class="bcp14">MUST</span>:<a href="#section-5.3-1" class="pilcrow">¶</a></p>
-<ol start="1" type="1" class="normal type-1" id="section-5.3-2">
-<li id="section-5.3-2.1">
-            <p id="section-5.3-2.1.1">Identify the issued challenge using the nonce and select the signature with
-the label requested by that challenge.<a href="#section-5.3-2.1.1" class="pilcrow">¶</a></p>
+<p id="section-5.4-1">Before accepting a signed request, the server <span class="bcp14">MUST</span>:<a href="#section-5.4-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-5.4-2">
+<li id="section-5.4-2.1">
+            <p id="section-5.4-2.1.1">Select the signature under the applicable profile or policy. For a challenge
+response, identify the issued challenge using the nonce, select the requested
+signature label, and verify that the challenge is unexpired and applies to
+the request's method, target, and tunnel protocol. For an unsolicited
+signature, verify that server policy permits its use.<a href="#section-5.4-2.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="section-5.3-2.2">
-            <p id="section-5.3-2.2.1">Verify that the challenge is unexpired and applies to the request's method,
-target, and tunnel protocol.<a href="#section-5.3-2.2.1" class="pilcrow">¶</a></p>
+          <li id="section-5.4-2.2">
+            <p id="section-5.4-2.2.1">Check the signature coverage and parameters against <a href="#signature-requirements" class="auto internal xref">Section 4</a>
+and any issued challenge, and verify the signature according to
+<span><a href="https://rfc-editor.org/rfc/rfc9421#section-3.2" class="relref">Section 3.2</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>.<a href="#section-5.4-2.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="section-5.3-2.3">
-            <p id="section-5.3-2.3.1">Check the signature coverage and parameters against both the issued
-challenge and <a href="#signature-requirements" class="auto internal xref">Section 4</a>, and verify the signature according
-to <span><a href="https://rfc-editor.org/rfc/rfc9421#section-3.2" class="relref">Section 3.2</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>.<a href="#section-5.3-2.3.1" class="pilcrow">¶</a></p>
+          <li id="section-5.4-2.3">
+            <p id="section-5.4-2.3.1">Check that the signature lifetime does not exceed the server's maximum and
+that the current time falls within the signature validity period. The server
+<span class="bcp14">MAY</span> allow a small, bounded tolerance for clock skew.<a href="#section-5.4-2.3.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="section-5.3-2.4">
-            <p id="section-5.3-2.4.1">Check that the current time falls within the signature validity period.
-The server <span class="bcp14">MAY</span> allow a small, bounded tolerance for clock skew.<a href="#section-5.3-2.4.1" class="pilcrow">¶</a></p>
-</li>
-          <li id="section-5.3-2.5">
-            <p id="section-5.3-2.5.1">Atomically check that the nonce is unused and mark it as consumed. If it has
-already been consumed, authentication <span class="bcp14">MUST</span> fail.<a href="#section-5.3-2.5.1" class="pilcrow">¶</a></p>
+          <li id="section-5.4-2.4">
+            <p id="section-5.4-2.4.1">Atomically check that the nonce is unused and record its consumption. For a
+client-generated nonce, the replay record <span class="bcp14">MUST</span> be scoped to the verified
+signing key and nonce value, independent of signature labels, key identifier
+aliases, or request targets. For a server-provided nonce, the challenge <span class="bcp14">MUST</span>
+be consumed at most once. If already consumed, authentication <span class="bcp14">MUST</span> fail.<a href="#section-5.4-2.4.1" class="pilcrow">¶</a></p>
 </li>
         </ol>
-<p id="section-5.3-3">Single-use enforcement <span class="bcp14">MUST</span> apply across all connections and server instances
-that can accept the nonce. If that enforcement cannot be guaranteed, the
-server <span class="bcp14">MUST NOT</span> accept the request. An invalid signature <span class="bcp14">MUST NOT</span> consume the
-nonce. Once consumed, a nonce <span class="bcp14">MUST NOT</span> become usable again, including when
-authorization or subsequent tunnel establishment fails.<a href="#section-5.3-3" class="pilcrow">¶</a></p>
-<p id="section-5.3-4">After authentication, the server applies its authorization policy. It <span class="bcp14">MUST NOT</span>
+<p id="section-5.4-3">Single-use enforcement <span class="bcp14">MUST</span> apply across all connections and server instances
+that can accept the signature. Client nonce records <span class="bcp14">MUST</span> be retained through
+signature expiration, including any clock skew tolerance. Server nonce
+consumption <span class="bcp14">MUST</span> be recorded for the entire remaining challenge lifetime.
+If single-use enforcement cannot be guaranteed, the server <span class="bcp14">MUST NOT</span> accept
+the request. An invalid signature <span class="bcp14">MUST NOT</span> create a replay record or consume
+a challenge. Once consumed, a nonce <span class="bcp14">MUST NOT</span> become usable again during its
+acceptance window, including when authorization or subsequent tunnel
+establishment fails.<a href="#section-5.4-3" class="pilcrow">¶</a></p>
+<p id="section-5.4-4">After authentication, the server applies its authorization policy. It <span class="bcp14">MUST NOT</span>
 open the requested upstream connection, forward tunnel traffic, or send a
 successful establishment response before authentication and authorization
 succeed. Successful establishment uses the response defined by the applicable
 tunnel protocol: a 2xx response for CONNECT or a 101 (Switching Protocols)
-response for HTTP/1.1 Upgrade. Authentication applies only to this request.<a href="#section-5.3-4" class="pilcrow">¶</a></p>
+response for HTTP/1.1 Upgrade. Authentication applies only to this request.<a href="#section-5.4-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="authentication-errors">
-<section id="section-5.4">
+<section id="section-5.5">
         <h3 id="name-error-handling">
-<a href="#section-5.4" class="section-number selfRef">5.4. </a><a href="#name-error-handling" class="section-name selfRef">Error Handling</a>
+<a href="#section-5.5" class="section-number selfRef">5.5. </a><a href="#name-error-handling" class="section-name selfRef">Error Handling</a>
         </h3>
-<p id="section-5.4-1">Malformed authentication fields <span class="bcp14">SHOULD</span> result in 400 (Bad Request). For
-well-formed requests, failed authentication, including an invalid signature or
-an unknown, expired, or consumed nonce, <span class="bcp14">MUST</span> result in 403 (Forbidden). The
-server <span class="bcp14">MAY</span> include a fresh Accept-Signature challenge if another attempt could
-succeed.<a href="#section-5.4-1" class="pilcrow">¶</a></p>
-<p id="section-5.4-2">If authentication succeeds but authorization fails, the server <span class="bcp14">MUST</span> return 403
+<p id="section-5.5-1">Malformed authentication fields <span class="bcp14">SHOULD</span> result in 400 (Bad Request). For
+well-formed requests, failed authentication, including an invalid signature,
+a replayed client nonce, or an expired or consumed server nonce, <span class="bcp14">MUST</span> result
+in 403 (Forbidden). The server <span class="bcp14">MAY</span> include a fresh Accept-Signature
+challenge if another attempt could succeed, and <span class="bcp14">MUST</span> do so in the cases
+specified in <a href="#issuing-challenge" class="auto internal xref">Section 5.2</a>.<a href="#section-5.5-1" class="pilcrow">¶</a></p>
+<p id="section-5.5-2">If authentication succeeds but authorization fails, the server <span class="bcp14">MUST</span> return 403
 without an Accept-Signature challenge. A client receiving a 403 response without
 a challenge <span class="bcp14">MUST NOT</span> automatically retry using this procedure. Other failures,
 such as an unreachable tunnel destination, use the error handling of the
-applicable tunnel protocol.<a href="#section-5.4-2" class="pilcrow">¶</a></p>
+applicable tunnel protocol.<a href="#section-5.5-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -1566,9 +1611,10 @@ applicable tunnel protocol.<a href="#section-5.4-2" class="pilcrow">¶</a></p>
       </h2>
 <p id="section-6-1">These examples show successful exchanges at 2026-10-06T00:00:00Z. All
 request signatures use Ed25519 and expire 60 seconds later; the server
-accepts each challenge during that interval. Keys and nonce values are
-for illustration only and are not suitable for deployment. Long lines
-are folded using <span>[<a href="#FOLDING" class="cite xref">FOLDING</a>]</span>; folding is not part of the messages.<a href="#section-6-1" class="pilcrow">¶</a></p>
+accepts signatures and any challenges during that interval. Keys and
+nonce values are for illustration only and are not suitable for
+deployment. Long lines are folded using <span>[<a href="#FOLDING" class="cite xref">FOLDING</a>]</span>; folding is
+not part of the messages.<a href="#section-6-1" class="pilcrow">¶</a></p>
 <p id="section-6-2">The client public key used in all three examples is:<a href="#section-6-2" class="pilcrow">¶</a></p>
 <span id="name-example-client-public-key"></span><div id="example-client-key">
 <figure id="figure-2">
@@ -1629,48 +1675,17 @@ token's protected header is:<a href="#section-6.1-3" class="pilcrow">¶</a></p>
 <a href="#name-wit-protected-header" class="selfRef">WIT protected header</a>
           </figcaption></figure>
 </div>
-<p id="section-6.1-5">Editorial note: this example anticipates changes to WIMSE permitting
-server-provided nonces and omitting <code>@path</code> and <code>@query</code> for standard
-CONNECT. It is not fully conformant to draft-ietf-wimse-http-signature-07.<a href="#section-6.1-5" class="pilcrow">¶</a></p>
-<p id="section-6.1-6">The client first sends:<a href="#section-6.1-6" class="pilcrow">¶</a></p>
-<span id="name-initial-connect-request"></span><div id="example-connect-initial">
-<figure id="figure-5">
-          <div class="alignLeft art-text artwork" id="section-6.1-7.1">
-<pre>
-CONNECT service.example:443 HTTP/1.1
-Host: service.example:443
-</pre>
-</div>
-<figcaption><a href="#figure-5" class="selfRef">Figure 5</a>:
-<a href="#name-initial-connect-request" class="selfRef">Initial CONNECT request</a>
-          </figcaption></figure>
-</div>
-<p id="section-6.1-8">The proxy challenges the client:<a href="#section-6.1-8" class="pilcrow">¶</a></p>
-<span id="name-connect-challenge"></span><div id="example-connect-challenge">
-<figure id="figure-6">
-          <div class="alignLeft art-text artwork" id="section-6.1-9.1">
-<pre>
-NOTE: '\' line wrapping per RFC 8792
-
-HTTP/1.1 403 Forbidden
-Cache-Control: no-store
-Content-Length: 0
-Accept-Signature: sig1=("@method" "@authority" \
-  "workload-identity-token");nonce="8R2YsD5mrtrsiLPZPXt07_6jex3LLjNq";\
-  created;expires;tag="wimse-workload-to-workload"
-</pre>
-</div>
-<figcaption><a href="#figure-6" class="selfRef">Figure 6</a>:
-<a href="#name-connect-challenge" class="selfRef">CONNECT challenge</a>
-          </figcaption></figure>
-</div>
-<p id="section-6.1-10">The client retries with its WIT and signature. The <code>wimse-aud</code> value is
+<p id="section-6.1-5">Editorial note: this example anticipates changes to WIMSE omitting
+<code>@path</code> and <code>@query</code> for standard CONNECT. It is not fully conformant to
+draft-ietf-wimse-http-signature-07.<a href="#section-6.1-5" class="pilcrow">¶</a></p>
+<p id="section-6.1-6">The proxy permits unsolicited signatures. The client sends its WIT and
+signature with a fresh client-generated nonce. The <code>wimse-aud</code> value is
 the proxy identity configured for this WIMSE deployment. The signing key
 and algorithm come from the WIT, so <code>keyid</code> and <code>alg</code> are absent from
-Signature-Input. Response signing is not requested.<a href="#section-6.1-10" class="pilcrow">¶</a></p>
+Signature-Input. Response signing is not requested.<a href="#section-6.1-6" class="pilcrow">¶</a></p>
 <span id="name-signed-connect-request"></span><div id="example-connect-signed">
-<figure id="figure-7">
-          <div class="alignLeft art-text artwork" id="section-6.1-11.1">
+<figure id="figure-5">
+          <div class="alignLeft art-text artwork" id="section-6.1-7.1">
 <pre>
 NOTE: '\' line wrapping per RFC 8792
 
@@ -1686,26 +1701,27 @@ Workload-Identity-Token: eyJhbGciOiJFZDI1NTE5IiwidHlwIjoid2l0K2p3dCIsIm\
   g1A8gIK6Ag
 Signature-Input: sig1=("@method" "@authority" \
   "workload-identity-token");created=1791244800;expires=1791244860;\
-  nonce="8R2YsD5mrtrsiLPZPXt07_6jex3LLjNq";\
+  nonce="sGcptixoRlVhKrE6YIc1oqzQP3vBoc64";\
   tag="wimse-workload-to-workload";wimse-aud="https://proxy.example"
-Signature: sig1=:DIPNsG7AHT3Z8bspv3q6Oy/paFM4ZwKkNc7INxqrq/h19/MSwgM1k/\
-  fMxdqWxUM91wwcYnIIJn35UP6IqcAyDg==:
+Signature: sig1=:SCnWV6Cf2nA72ZxD21Mmhts1cFO3T3aLBCFTaPghZBhOEmqV+x5zIA\
+  gOUUOd0szJNZ1hmsprco67FGouQ0E8Bg==:
 </pre>
 </div>
-<figcaption><a href="#figure-7" class="selfRef">Figure 7</a>:
+<figcaption><a href="#figure-5" class="selfRef">Figure 5</a>:
 <a href="#name-signed-connect-request" class="selfRef">Signed CONNECT request</a>
           </figcaption></figure>
 </div>
-<p id="section-6.1-12">After validating the WIT and request signature and authorizing the tunnel,
-the proxy responds:<a href="#section-6.1-12" class="pilcrow">¶</a></p>
+<p id="section-6.1-8">The proxy validates the WIT, audience, and request signature, atomically
+records the client nonce under the verified signing key, and authorizes
+the tunnel. It responds without an Accept-Signature exchange:<a href="#section-6.1-8" class="pilcrow">¶</a></p>
 <span id="name-connect-success"></span><div id="example-connect-success">
-<figure id="figure-8">
-          <div class="alignLeft art-text artwork" id="section-6.1-13.1">
+<figure id="figure-6">
+          <div class="alignLeft art-text artwork" id="section-6.1-9.1">
 <pre>
 HTTP/1.1 200 Connection Established
 </pre>
 </div>
-<figcaption><a href="#figure-8" class="selfRef">Figure 8</a>:
+<figcaption><a href="#figure-6" class="selfRef">Figure 6</a>:
 <a href="#name-connect-success" class="selfRef">CONNECT success</a>
           </figcaption></figure>
 </div>
@@ -1720,10 +1736,11 @@ HTTP/1.1 200 Connection Established
 fields and signature apply to HTTP/3. Pseudo-header fields and header
 fields are shown in decoded form; connection setup and protocol settings
 negotiation are omitted. The proxy maps <code>client-key</code> to the client
-public key in <a href="#example-client-key" class="auto internal xref">Figure 2</a> through local configuration.<a href="#section-6.2-1" class="pilcrow">¶</a></p>
+public key in <a href="#example-client-key" class="auto internal xref">Figure 2</a> through local configuration and
+requires a server-provided nonce.<a href="#section-6.2-1" class="pilcrow">¶</a></p>
 <p id="section-6.2-2">The client requests a UDP tunnel to <code>192.0.2.1:443</code>:<a href="#section-6.2-2" class="pilcrow">¶</a></p>
 <span id="name-initial-connect-udp-request"></span><div id="example-udp-initial">
-<figure id="figure-9">
+<figure id="figure-7">
           <div class="alignLeft art-text artwork" id="section-6.2-3.1">
 <pre>
 :method: CONNECT
@@ -1734,13 +1751,13 @@ public key in <a href="#example-client-key" class="auto internal xref">Figure 2<
 capsule-protocol: ?1
 </pre>
 </div>
-<figcaption><a href="#figure-9" class="selfRef">Figure 9</a>:
+<figcaption><a href="#figure-7" class="selfRef">Figure 7</a>:
 <a href="#name-initial-connect-udp-request" class="selfRef">Initial CONNECT-UDP request</a>
           </figcaption></figure>
 </div>
 <p id="section-6.2-4">The proxy requests a signature:<a href="#section-6.2-4" class="pilcrow">¶</a></p>
 <span id="name-connect-udp-challenge"></span><div id="example-udp-challenge">
-<figure id="figure-10">
+<figure id="figure-8">
           <div class="alignLeft art-text artwork" id="section-6.2-5.1">
 <pre>
 NOTE: '\' line wrapping per RFC 8792
@@ -1753,13 +1770,13 @@ accept-signature: sig1=("@method" "@authority" "@scheme" "@path" \
   created;expires;keyid="client-key";alg="ed25519"
 </pre>
 </div>
-<figcaption><a href="#figure-10" class="selfRef">Figure 10</a>:
+<figcaption><a href="#figure-8" class="selfRef">Figure 8</a>:
 <a href="#name-connect-udp-challenge" class="selfRef">CONNECT-UDP challenge</a>
           </figcaption></figure>
 </div>
 <p id="section-6.2-6">The client sends the signed request:<a href="#section-6.2-6" class="pilcrow">¶</a></p>
 <span id="name-signed-connect-udp-request"></span><div id="example-udp-signed">
-<figure id="figure-11">
+<figure id="figure-9">
           <div class="alignLeft art-text artwork" id="section-6.2-7.1">
 <pre>
 NOTE: '\' line wrapping per RFC 8792
@@ -1778,20 +1795,20 @@ signature: sig1=:FbyVrcdlNx9SrAKNJBgDhoEHxrx22Lf/moVSW5F23kqv8hwbc9u1xc\
   xyh5qRopJlsPpCWgRFvonN/olXL4z5Cw==:
 </pre>
 </div>
-<figcaption><a href="#figure-11" class="selfRef">Figure 11</a>:
+<figcaption><a href="#figure-9" class="selfRef">Figure 9</a>:
 <a href="#name-signed-connect-udp-request" class="selfRef">Signed CONNECT-UDP request</a>
           </figcaption></figure>
 </div>
 <p id="section-6.2-8">After validation and authorization, the proxy accepts the tunnel:<a href="#section-6.2-8" class="pilcrow">¶</a></p>
 <span id="name-connect-udp-success"></span><div id="example-udp-success">
-<figure id="figure-12">
+<figure id="figure-10">
           <div class="alignLeft art-text artwork" id="section-6.2-9.1">
 <pre>
 :status: 200
 capsule-protocol: ?1
 </pre>
 </div>
-<figcaption><a href="#figure-12" class="selfRef">Figure 12</a>:
+<figcaption><a href="#figure-10" class="selfRef">Figure 10</a>:
 <a href="#name-connect-udp-success" class="selfRef">CONNECT-UDP success</a>
           </figcaption></figure>
 </div>
@@ -1806,27 +1823,37 @@ capsule-protocol: ?1
 maps <code>client-key</code> to the public key in <a href="#example-client-key" class="auto internal xref">Figure 2</a>. The
 handshake follows <span>[<a href="#WEBSOCKET" class="cite xref">WEBSOCKET</a>]</span> and additionally covers its key and
 version fields. This example assumes a client capable of setting the
-signature fields.<a href="#section-6.3-1" class="pilcrow">¶</a></p>
-<p id="section-6.3-2">The initial request is:<a href="#section-6.3-2" class="pilcrow">¶</a></p>
-<span id="name-initial-websocket-request"></span><div id="example-ws-initial">
-<figure id="figure-13">
+signature fields. The server requires a server-provided nonce even for
+a valid unsolicited signature.<a href="#section-6.3-1" class="pilcrow">¶</a></p>
+<p id="section-6.3-2">The client initially sends an unsolicited signature with its own nonce:<a href="#section-6.3-2" class="pilcrow">¶</a></p>
+<span id="name-unsolicited-signed-websocke"></span><div id="example-ws-initial">
+<figure id="figure-11">
           <div class="alignLeft art-text artwork" id="section-6.3-3.1">
 <pre>
+NOTE: '\' line wrapping per RFC 8792
+
 GET /socket HTTP/1.1
 Host: chat.example
 Upgrade: websocket
 Connection: Upgrade
 Sec-WebSocket-Key: dHVubmVsLWV4YW1wbGUtMQ==
 Sec-WebSocket-Version: 13
+Signature-Input: sig1=("@method" "@authority" "@scheme" "@path" \
+  "@query" "upgrade" "sec-websocket-key" "sec-websocket-version");\
+  created=1791244800;expires=1791244860;\
+  nonce="tldju9XaHCa61VGB2yTC8vWw9dsm8oDs";keyid="client-key";\
+  alg="ed25519"
+Signature: sig1=:+TiZgHUrj8II+HLQAlEOfzR67zpxu1iop6i6oLlGlnWzehK0WEgTPn\
+  juUHlI7baWRnjPWljilteYo/rUU5/BAg==:
 </pre>
 </div>
-<figcaption><a href="#figure-13" class="selfRef">Figure 13</a>:
-<a href="#name-initial-websocket-request" class="selfRef">Initial WebSocket request</a>
+<figcaption><a href="#figure-11" class="selfRef">Figure 11</a>:
+<a href="#name-unsolicited-signed-websocke" class="selfRef">Unsolicited signed WebSocket request</a>
           </figcaption></figure>
 </div>
-<p id="section-6.3-4">The server challenges the client:<a href="#section-6.3-4" class="pilcrow">¶</a></p>
+<p id="section-6.3-4">The server requires a fresh server nonce and challenges the client:<a href="#section-6.3-4" class="pilcrow">¶</a></p>
 <span id="name-websocket-challenge"></span><div id="example-ws-challenge">
-<figure id="figure-14">
+<figure id="figure-12">
           <div class="alignLeft art-text artwork" id="section-6.3-5.1">
 <pre>
 NOTE: '\' line wrapping per RFC 8792
@@ -1840,13 +1867,13 @@ Accept-Signature: sig1=("@method" "@authority" "@scheme" "@path" \
   keyid="client-key";alg="ed25519"
 </pre>
 </div>
-<figcaption><a href="#figure-14" class="selfRef">Figure 14</a>:
+<figcaption><a href="#figure-12" class="selfRef">Figure 12</a>:
 <a href="#name-websocket-challenge" class="selfRef">WebSocket challenge</a>
           </figcaption></figure>
 </div>
-<p id="section-6.3-6">The client retries with a signed request:<a href="#section-6.3-6" class="pilcrow">¶</a></p>
+<p id="section-6.3-6">The client retries with the server-provided nonce and a new signature:<a href="#section-6.3-6" class="pilcrow">¶</a></p>
 <span id="name-signed-websocket-request"></span><div id="example-ws-signed">
-<figure id="figure-15">
+<figure id="figure-13">
           <div class="alignLeft art-text artwork" id="section-6.3-7.1">
 <pre>
 NOTE: '\' line wrapping per RFC 8792
@@ -1866,13 +1893,13 @@ Signature: sig1=:3ZOPO6A4SOYlAca2kDi+aoVKqrkFovGYRBaoTxD5BXkSmUZuz/79uW\
   4T8VAQmSc2RkdRsSdSG3okLyUM5IvfDQ==:
 </pre>
 </div>
-<figcaption><a href="#figure-15" class="selfRef">Figure 15</a>:
+<figcaption><a href="#figure-13" class="selfRef">Figure 13</a>:
 <a href="#name-signed-websocket-request" class="selfRef">Signed WebSocket request</a>
           </figcaption></figure>
 </div>
 <p id="section-6.3-8">After validation and authorization, the server switches protocols:<a href="#section-6.3-8" class="pilcrow">¶</a></p>
 <span id="name-websocket-success"></span><div id="example-ws-success">
-<figure id="figure-16">
+<figure id="figure-14">
           <div class="alignLeft art-text artwork" id="section-6.3-9.1">
 <pre>
 HTTP/1.1 101 Switching Protocols
@@ -1881,7 +1908,7 @@ Connection: Upgrade
 Sec-WebSocket-Accept: P8RU/XYB7aRBEQ1oQfgq2shti/c=
 </pre>
 </div>
-<figcaption><a href="#figure-16" class="selfRef">Figure 16</a>:
+<figcaption><a href="#figure-14" class="selfRef">Figure 14</a>:
 <a href="#name-websocket-success" class="selfRef">WebSocket success</a>
           </figcaption></figure>
 </div>
@@ -1900,28 +1927,35 @@ between that key and a client identity and an authorization decision for the
 requested tunnel. Components used in that decision need to be covered as
 specified in <a href="#covered-components" class="auto internal xref">Section 4.1</a>. Uncovered fields can be modified without
 invalidating the signature.<a href="#section-7-1" class="pilcrow">¶</a></p>
-<p id="section-7-2">Replay protection depends on both challenge expiry and atomic single-use
-enforcement across all server instances that accept a nonce. An expiring,
-self-contained challenge does not by itself prevent reuse before expiry.
-Loss of replay state must not cause a consumed challenge to become acceptable
-again; affected challenges need to be rejected.<a href="#section-7-2" class="pilcrow">¶</a></p>
-<p id="section-7-3">This mechanism does not authenticate the server or protect tunnel traffic.
+<p id="section-7-2">Replay protection depends on bounded signature lifetimes and atomic single-use
+enforcement across all server instances that accept a signature. Random client
+nonces do not prevent replay without this state. Server-provided nonces also
+bind signatures to fresh challenges, but expiring, self-contained challenges
+still require single-use enforcement. Loss or eviction of replay state <span class="bcp14">MUST NOT</span> allow previously accepted requests to be accepted again; affected requests
+<span class="bcp14">MUST</span> be rejected until that protection can be guaranteed.<a href="#section-7-2" class="pilcrow">¶</a></p>
+<p id="section-7-3">For standard CONNECT, <code>@authority</code> identifies the tunnel destination, not the
+proxy. An unsolicited signature could therefore be accepted at another proxy
+that trusts the same key and maintains independent replay state. Deployments
+accepting unsolicited signatures at such proxies need recipient binding from
+an applicable profile, such as WIMSE's <code>wimse-aud</code>, or keys whose acceptance is
+restricted to the intended recipient. This document defines no additional
+audience parameter.<a href="#section-7-3" class="pilcrow">¶</a></p>
+<p id="section-7-4">This mechanism does not authenticate the server or protect tunnel traffic.
 Without a protected transport, credentials and request details are visible,
 and an active attacker can alter challenges or forge responses. An attacker
 can also relay a server's challenge to a legitimate client and use the signed
 response to establish a tunnel under the attacker's control. Fresh, single-use
 nonces do not prevent this live relay or subsequent tunnel hijacking. TLS or
 equivalent channel protection can address these risks without being a
-prerequisite for this mechanism.<a href="#section-7-3" class="pilcrow">¶</a></p>
-<p id="section-7-4">Clients need to apply their signing policy to challenges, including restrictions
+prerequisite for this mechanism.<a href="#section-7-4" class="pilcrow">¶</a></p>
+<p id="section-7-5">Clients need to apply their signing policy to challenges, including restrictions
 on keys and algorithms, rather than treating Accept-Signature as authority to
 use arbitrary credentials. Servers need to enforce their own coverage and
-algorithm requirements even if a challenge has been altered in transit.<a href="#section-7-4" class="pilcrow">¶</a></p>
-<p id="section-7-5">Challenge issuance and signature verification can be used to exhaust server
-resources. Servers <span class="bcp14">SHOULD</span> bound outstanding challenge state and rate-limit
-authentication attempts. Discarding challenge state to enforce those limits
-must cause the affected challenges to be rejected, not accepted without replay
-checks.<a href="#section-7-5" class="pilcrow">¶</a></p>
+algorithm requirements even if a challenge has been altered in transit.<a href="#section-7-5" class="pilcrow">¶</a></p>
+<p id="section-7-6">Challenge issuance, signature verification, and replay records can be used to
+exhaust server resources. Servers <span class="bcp14">SHOULD</span> bound authentication state and
+rate-limit authentication attempts. Resource limits <span class="bcp14">MUST NOT</span> cause requests
+to be accepted without replay checks.<a href="#section-7-6" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="iana">
