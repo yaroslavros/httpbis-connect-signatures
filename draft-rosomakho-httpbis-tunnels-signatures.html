@@ -27,11 +27,11 @@ nonce obtained through an Accept-Signature challenge.
     Jinja2 3.1.6
     lxml 6.1.1
     natsort 8.4.0
-    platformdirs 4.12.2
+    platformdirs 4.13.4
     pycountry 24.6.1
     PyYAML 6.0.3
     requests 2.33.1
-    wcwidth 0.9.1
+    wcwidth 0.9.2
 -->
 <link href="draft-rosomakho-httpbis-tunnels-signatures.xml" rel="alternate" type="application/rfc+xml">
 <link href="#copyright" rel="license">
@@ -1051,7 +1051,7 @@ svg {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Rosomakho</td>
-<td class="center">Expires 9 April 2027</td>
+<td class="center">Expires 22 April 2027</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1064,12 +1064,12 @@ svg {
 <dd class="internet-draft">draft-rosomakho-httpbis-tunnels-signatures-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-10-06" class="published">6 October 2026</time>
+<time datetime="2026-10-19" class="published">19 October 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Standards Track</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2027-04-09">9 April 2027</time></dd>
+<dd class="expires"><time datetime="2027-04-22">22 April 2027</time></dd>
 <dt class="label-authors">Author:</dt>
 <dd class="authors">
 <div class="author">
@@ -1122,7 +1122,7 @@ nonce obtained through an Accept-Signature challenge.<a href="#section-abstract-
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 9 April 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 22 April 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1171,6 +1171,9 @@ nonce obtained through an Accept-Signature challenge.<a href="#section-abstract-
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.3">
                 <p id="section-toc.1-1.4.2.3.1"><a href="#section-4.3" class="auto internal xref">4.3</a>.  <a href="#name-signature-parameters" class="internal xref">Signature Parameters</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.4">
+                <p id="section-toc.1-1.4.2.4.1"><a href="#section-4.4" class="auto internal xref">4.4</a>.  <a href="#name-the-proxy-authority-signatu" class="internal xref">The <code>proxy-authority</code> Signature Parameter</a></p>
 </li>
             </ul>
 </li>
@@ -1462,6 +1465,51 @@ profile. This document does not mandate <code>keyid</code>, <code>alg</code>, or
 value; their use follows <span>[<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span> and the applicable deployment or profile.<a href="#section-4.3-4" class="pilcrow">¶</a></p>
 </section>
 </div>
+<div id="proxy-authority">
+<section id="section-4.4">
+        <h3 id="name-the-proxy-authority-signatu">
+<a href="#section-4.4" class="section-number selfRef">4.4. </a><a href="#name-the-proxy-authority-signatu" class="section-name selfRef">The <code>proxy-authority</code> Signature Parameter</a>
+        </h3>
+<p id="section-4.4-1">The <code>proxy-authority</code> signature metadata parameter identifies the intended
+proxy. It <span class="bcp14">MUST</span> be included in signatures authenticating standard CONNECT,
+whether unsolicited or challenged, and <span class="bcp14">MUST NOT</span> be used for extended CONNECT
+or HTTP/1.1 Upgrade. In Signature-Input, its value is a String containing the
+proxy hostname or IP address followed by a colon and an explicit port. It is
+protected by the signature through <code>@signature-params</code> as defined in
+<span><a href="https://rfc-editor.org/rfc/rfc9421#section-2.3" class="relref">Section 2.3</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>.<a href="#section-4.4-1" class="pilcrow">¶</a></p>
+<p id="section-4.4-2">The client <span class="bcp14">MUST</span> derive the value from its proxy configuration, retaining the
+configured hostname rather than substituting a DNS-resolved address. The value
+<span class="bcp14">MUST</span> be normalized as follows:<a href="#section-4.4-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.4-3.1">
+            <p id="section-4.4-3.1.1">Hostnames are lowercase ASCII, with internationalized labels represented as
+A-labels <span>[<a href="#IDNA" class="cite xref">IDNA</a>]</span> and any final dot omitted.<a href="#section-4.4-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.4-3.2">
+            <p id="section-4.4-3.2.1">IPv4 addresses use four decimal octets without leading zeros. IPv6 addresses
+use the hexadecimal representation specified in Section 4 of
+<span>[<a href="#IPV6-TEXT" class="cite xref">IPV6-TEXT</a>]</span>, enclosed in square brackets. IPv6 zone identifiers
+are not permitted.<a href="#section-4.4-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.4-3.3">
+            <p id="section-4.4-3.3.1">The port is a decimal integer from 1 through 65535 without leading zeros.
+It <span class="bcp14">MUST</span> be included even when it is the default port for the configured proxy
+scheme. For example, <code>https://proxy.example</code> produces <code>proxy.example:443</code>.<a href="#section-4.4-3.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-4.4-4">The value <span class="bcp14">MUST NOT</span> contain a scheme, user information, path, query, or fragment.
+For example, <code>proxy.example:8080</code> and <code>[2001:db8::1]:443</code> are valid values.
+The proxy <span class="bcp14">MUST</span> reject authentication unless the value is in this normalized
+form and exactly matches one of its configured proxy identities. An identity
+<span class="bcp14">MUST NOT</span> be accepted solely because it appears in the request.<a href="#section-4.4-4" class="pilcrow">¶</a></p>
+<p id="section-4.4-5">An Accept-Signature challenge for standard CONNECT <span class="bcp14">MUST</span> include
+<code>proxy-authority</code> in its Boolean true form (<code>;proxy-authority</code>, equivalent to
+<code>;proxy-authority=?1</code>). This requests inclusion of the parameter without
+specifying a proxy identity. The client <span class="bcp14">MUST</span> supply the normalized String
+value derived from its proxy configuration in Signature-Input. The proxy
+checks that value against its configured identities as described above.<a href="#section-4.4-5" class="pilcrow">¶</a></p>
+</section>
+</div>
 </section>
 </div>
 <div id="authentication-procedure">
@@ -1500,7 +1548,8 @@ the server <span class="bcp14">MUST</span> return 403 (Forbidden) with an Accept
 mechanism, using the syntax in <span><a href="https://rfc-editor.org/rfc/rfc9421#section-5.1" class="relref">Section 5.1</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>. It <span class="bcp14">MUST</span> specify the
 coverage required by <a href="#signature-requirements" class="auto internal xref">Section 4</a>, a fresh <code>nonce</code> value, and the
 <code>created</code> and <code>expires</code> parameters in their Boolean true form. The response
-<span class="bcp14">MUST</span> include <code>Cache-Control: no-store</code>.<a href="#section-5.2-1" class="pilcrow">¶</a></p>
+<span class="bcp14">MUST</span> include <code>Cache-Control: no-store</code>. For standard CONNECT, the challenge
+<span class="bcp14">MUST</span> also include <code>proxy-authority</code> as specified in <a href="#proxy-authority" class="auto internal xref">Section 4.4</a>.<a href="#section-5.2-1" class="pilcrow">¶</a></p>
 <p id="section-5.2-2">The nonce <span class="bcp14">MUST</span> be unpredictable and unique among challenges that the server
 can still accept. The server <span class="bcp14">MUST</span> assign each challenge a bounded lifetime and
 <span class="bcp14">SHOULD</span> keep that lifetime short, on the order of minutes.<a href="#section-5.2-2" class="pilcrow">¶</a></p>
@@ -1552,7 +1601,8 @@ signature, verify that server policy permits its use.<a href="#section-5.4-2.1.1
           <li id="section-5.4-2.2">
             <p id="section-5.4-2.2.1">Check the signature coverage and parameters against <a href="#signature-requirements" class="auto internal xref">Section 4</a>
 and any issued challenge, and verify the signature according to
-<span><a href="https://rfc-editor.org/rfc/rfc9421#section-3.2" class="relref">Section 3.2</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>.<a href="#section-5.4-2.2.1" class="pilcrow">¶</a></p>
+<span><a href="https://rfc-editor.org/rfc/rfc9421#section-3.2" class="relref">Section 3.2</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>. For standard CONNECT, this includes checking
+<code>proxy-authority</code> against the proxy's configured identities.<a href="#section-5.4-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-5.4-2.3">
             <p id="section-5.4-2.3.1">Check that the signature lifetime does not exceed the server's maximum and
@@ -1679,10 +1729,13 @@ token's protected header is:<a href="#section-6.1-3" class="pilcrow">¶</a></p>
 <code>@path</code> and <code>@query</code> for standard CONNECT. It is not fully conformant to
 draft-ietf-wimse-http-signature-07.<a href="#section-6.1-5" class="pilcrow">¶</a></p>
 <p id="section-6.1-6">The proxy permits unsolicited signatures. The client sends its WIT and
-signature with a fresh client-generated nonce. The <code>wimse-aud</code> value is
-the proxy identity configured for this WIMSE deployment. The signing key
-and algorithm come from the WIT, so <code>keyid</code> and <code>alg</code> are absent from
-Signature-Input. Response signing is not requested.<a href="#section-6.1-6" class="pilcrow">¶</a></p>
+signature with a fresh client-generated nonce. The <code>proxy-authority</code>
+value is <code>proxy.example:443</code>, derived from the configured proxy URI.
+The <code>wimse-aud</code> value is the proxy identity configured for this WIMSE
+deployment. Both identify the intended proxy and are checked
+independently. The signing key and algorithm come from the WIT, so
+<code>keyid</code> and <code>alg</code> are absent from Signature-Input. Response signing is
+not requested.<a href="#section-6.1-6" class="pilcrow">¶</a></p>
 <span id="name-signed-connect-request"></span><div id="example-connect-signed">
 <figure id="figure-5">
           <div class="alignLeft art-text artwork" id="section-6.1-7.1">
@@ -1702,18 +1755,20 @@ Workload-Identity-Token: eyJhbGciOiJFZDI1NTE5IiwidHlwIjoid2l0K2p3dCIsIm\
 Signature-Input: sig1=("@method" "@authority" \
   "workload-identity-token");created=1791244800;expires=1791244860;\
   nonce="sGcptixoRlVhKrE6YIc1oqzQP3vBoc64";\
-  tag="wimse-workload-to-workload";wimse-aud="https://proxy.example"
-Signature: sig1=:SCnWV6Cf2nA72ZxD21Mmhts1cFO3T3aLBCFTaPghZBhOEmqV+x5zIA\
-  gOUUOd0szJNZ1hmsprco67FGouQ0E8Bg==:
+  tag="wimse-workload-to-workload";proxy-authority="proxy.example:443";\
+  wimse-aud="https://proxy.example"
+Signature: sig1=:5qi1gPTvGrDF4B5R1OK5L+4VmD85WCIPlM+bHm7UUmAEehf4Wv/TRp\
+  0a5KNeDKuQUQfwQ4n40519anF+8skaDQ==:
 </pre>
 </div>
 <figcaption><a href="#figure-5" class="selfRef">Figure 5</a>:
 <a href="#name-signed-connect-request" class="selfRef">Signed CONNECT request</a>
           </figcaption></figure>
 </div>
-<p id="section-6.1-8">The proxy validates the WIT, audience, and request signature, atomically
-records the client nonce under the verified signing key, and authorizes
-the tunnel. It responds without an Accept-Signature exchange:<a href="#section-6.1-8" class="pilcrow">¶</a></p>
+<p id="section-6.1-8">The proxy validates the WIT, audience, proxy authority, and request
+signature, atomically records the client nonce under the verified
+signing key, and authorizes the tunnel. It responds without an
+Accept-Signature exchange:<a href="#section-6.1-8" class="pilcrow">¶</a></p>
 <span id="name-connect-success"></span><div id="example-connect-success">
 <figure id="figure-6">
           <div class="alignLeft art-text artwork" id="section-6.1-9.1">
@@ -1934,12 +1989,13 @@ bind signatures to fresh challenges, but expiring, self-contained challenges
 still require single-use enforcement. Loss or eviction of replay state <span class="bcp14">MUST NOT</span> allow previously accepted requests to be accepted again; affected requests
 <span class="bcp14">MUST</span> be rejected until that protection can be guaranteed.<a href="#section-7-2" class="pilcrow">¶</a></p>
 <p id="section-7-3">For standard CONNECT, <code>@authority</code> identifies the tunnel destination, not the
-proxy. An unsolicited signature could therefore be accepted at another proxy
-that trusts the same key and maintains independent replay state. Deployments
-accepting unsolicited signatures at such proxies need recipient binding from
-an applicable profile, such as WIMSE's <code>wimse-aud</code>, or keys whose acceptance is
-restricted to the intended recipient. This document defines no additional
-audience parameter.<a href="#section-7-3" class="pilcrow">¶</a></p>
+proxy. The <code>proxy-authority</code> parameter binds the signature to the intended
+proxy, provided both parties check it against their configuration. Proxies
+sharing an accepted identity and signing-key trust <span class="bcp14">MUST</span> coordinate replay
+protection if they can accept the same signature. The parameter does not bind
+a transport scheme or authenticate the proxy to the client, and does not
+prevent live relay to the intended proxy. Additional audience requirements,
+such as WIMSE's <code>wimse-aud</code>, continue to apply independently.<a href="#section-7-3" class="pilcrow">¶</a></p>
 <p id="section-7-4">This mechanism does not authenticate the server or protect tunnel traffic.
 Without a protected transport, credentials and request details are visible,
 and an active attacker can alter challenges or forge responses. An attacker
@@ -1985,6 +2041,21 @@ CONNECT request<a href="#section-8-2.2.1" class="pilcrow">¶</a></p>
           <p id="section-8-2.5.1">Reference: <a href="#protocol-component" class="auto internal xref">Section 4.2</a> of this document<a href="#section-8-2.5.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
+<p id="section-8-3">This document also requests registration of the following entry in the "HTTP
+Signature Metadata Parameters" registry established by <span><a href="https://rfc-editor.org/rfc/rfc9421#section-6.3" class="relref">Section 6.3</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>,
+using the template in <span><a href="https://rfc-editor.org/rfc/rfc9421#section-6.3.1" class="relref">Section 6.3.1</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>:<a href="#section-8-3" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-8-4.1">
+          <p id="section-8-4.1.1">Name: <code>proxy-authority</code><a href="#section-8-4.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-8-4.2">
+          <p id="section-8-4.2.1">Description: The hostname or IP address and explicit port of the intended
+proxy for a standard CONNECT request<a href="#section-8-4.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-8-4.3">
+          <p id="section-8-4.3.1">Reference: <a href="#proxy-authority" class="auto internal xref">Section 4.4</a> of this document<a href="#section-8-4.3.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
 </section>
 </div>
 <div id="sec-combined-references">
@@ -2013,6 +2084,14 @@ CONNECT request<a href="#section-8-2.2.1" class="pilcrow">¶</a></p>
 <dt id="HTTP-SIG">[HTTP-SIG]</dt>
         <dd>
 <span class="refAuthor">Backman, A., Ed.</span>, <span class="refAuthor">Richer, J., Ed.</span>, and <span class="refAuthor">M. Sporny</span>, <span class="refTitle">"HTTP Message Signatures"</span>, <span class="seriesInfo">RFC 9421</span>, <span class="seriesInfo">DOI 10.17487/RFC9421</span>, <time datetime="2024-02" class="refDate">February 2024</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9421">https://www.rfc-editor.org/rfc/rfc9421</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="IDNA">[IDNA]</dt>
+        <dd>
+<span class="refAuthor">Klensin, J.</span>, <span class="refTitle">"Internationalized Domain Names for Applications (IDNA): Definitions and Document Framework"</span>, <span class="seriesInfo">RFC 5890</span>, <span class="seriesInfo">DOI 10.17487/RFC5890</span>, <time datetime="2010-08" class="refDate">August 2010</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc5890">https://www.rfc-editor.org/rfc/rfc5890</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="IPV6-TEXT">[IPV6-TEXT]</dt>
+        <dd>
+<span class="refAuthor">Kawamura, S.</span> and <span class="refAuthor">M. Kawashima</span>, <span class="refTitle">"A Recommendation for IPv6 Address Text Representation"</span>, <span class="seriesInfo">RFC 5952</span>, <span class="seriesInfo">DOI 10.17487/RFC5952</span>, <time datetime="2010-08" class="refDate">August 2010</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc5952">https://www.rfc-editor.org/rfc/rfc5952</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC2119">[RFC2119]</dt>
         <dd>
