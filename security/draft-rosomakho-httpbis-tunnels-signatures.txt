@@ -1,0 +1,849 @@
+
+
+
+
+HTTP                                                        Y. Rosomakho
+Internet-Draft                                                   Zscaler
+Intended status: Standards Track                         19 October 2026
+Expires: 22 April 2027
+
+
+        Authenticating HTTP Tunnels with HTTP Message Signatures
+           draft-rosomakho-httpbis-tunnels-signatures-latest
+
+Abstract
+
+   This document specifies client authentication for HTTP tunnel
+   establishment using HTTP Message Signatures.  It covers the CONNECT
+   method, extended CONNECT in HTTP/2 and HTTP/3, and HTTP/1.1 Upgrade.
+   It defines signature coverage and replay protection using either a
+   client-generated nonce or a server-provided nonce obtained through an
+   Accept-Signature challenge.
+
+About This Document
+
+   This note is to be removed before publishing as an RFC.
+
+   The latest revision of this draft can be found at
+   https://yaroslavros.github.io/httpbis-connect-signatures/draft-
+   rosomakho-httpbis-tunnels-signatures.html.  Status information for
+   this document may be found at https://datatracker.ietf.org/doc/draft-
+   rosomakho-httpbis-tunnels-signatures/.
+
+   Discussion of this document takes place on the HTTP Working Group
+   mailing list (mailto:ietf-http-wg@w3.org), which is archived at
+   https://lists.w3.org/Archives/Public/ietf-http-wg/.
+
+   Source for this draft and an issue tracker can be found at
+   https://github.com/yaroslavros/httpbis-connect-signatures.
+
+Status of This Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current Internet-
+   Drafts is at https://datatracker.ietf.org/drafts/current/.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   This Internet-Draft will expire on 22 April 2027.
+
+Copyright Notice
+
+   Copyright (c) 2026 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents (https://trustee.ietf.org/
+   license-info) in effect on the date of publication of this document.
+   Please review these documents carefully, as they describe your rights
+   and restrictions with respect to this document.  Code Components
+   extracted from this document must include Revised BSD License text as
+   described in Section 4.e of the Trust Legal Provisions and are
+   provided without warranty as described in the Revised BSD License.
+
+Table of Contents
+
+   1.  Introduction
+   2.  Conventions and Definitions
+   3.  Protocol Overview
+   4.  Signature Requirements
+     4.1.  Covered Components
+     4.2.  The @protocol Derived Component
+     4.3.  Signature Parameters
+     4.4.  The proxy-authority Signature Parameter
+   5.  Authentication Procedure
+     5.1.  Unsolicited Signatures
+     5.2.  Issuing a Challenge
+     5.3.  Responding to a Challenge
+     5.4.  Validating and Accepting a Request
+     5.5.  Error Handling
+   6.  Examples
+     6.1.  Standard CONNECT with WIMSE Credentials
+     6.2.  Extended CONNECT for UDP Proxying
+     6.3.  HTTP/1.1 WebSocket Upgrade
+   7.  Security Considerations
+   8.  IANA Considerations
+   9.  References
+     9.1.  Normative References
+     9.2.  Informative References
+   Acknowledgments
+   Author's Address
+
+1.  Introduction
+
+   HTTP endpoints that establish tunnels often need to authenticate
+   clients before granting access to network resources.  HTTP Message
+   Signatures [HTTP-SIG] provide a flexible mechanism for authenticating
+   selected components of an HTTP message, but their use requires a
+   profile that specifies the components to cover and the verification
+   requirements for a particular application.
+
+   This document defines such a profile for tunnel establishment using
+   the CONNECT method [HTTP], extended CONNECT in HTTP/2
+   [HTTP2-EXTCONNECT] and HTTP/3 [HTTP3-EXTCONNECT], and HTTP/1.1
+   Upgrade Section 7.8 of [HTTP].  These mechanisms support uses such as
+   UDP proxying [CONNECT-UDP] and WebSockets [WEBSOCKET].  The profile
+   specifies signature coverage and replay protection for each tunnel
+   establishment request.  Clients can send unsolicited signatures with
+   client-generated nonces; servers can accept these or require a fresh
+   nonce through an Accept-Signature challenge.
+
+   One motivating use case is authentication of software workloads at
+   CONNECT proxies.  WIMSE Workload-to-Workload Authentication with HTTP
+   Signatures [WIMSE-HTTPSIG] uses workload credentials and HTTP Message
+   Signatures to authenticate workload requests.  This document is
+   intended to support that use case while remaining independent of
+   WIMSE and applicable to other client authentication deployments.
+
+   Authentication applies to the tunnel establishment request.  Key
+   identification, trust establishment, and authorization policy are
+   outside the scope of this document.  The mechanism does not require
+   TLS or signed responses, and does not provide confidentiality or
+   integrity protection for subsequent tunnel traffic.
+
+2.  Conventions and Definitions
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+   "OPTIONAL" in this document are to be interpreted as described in
+   BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all
+   capitals, as shown here.
+
+3.  Protocol Overview
+
+   The client sends a tunnel establishment request, optionally signed
+   using a fresh client-generated nonce.  According to its policy, the
+   server can accept an unsolicited signature or require a signature
+   using a server-provided nonce.  If authentication is needed, the
+   server returns an Accept-Signature challenge with a fresh nonce and
+   the required signature coverage.  The client retries with the
+   requested signature.  Before accepting a request, the server verifies
+   the signature, enforces nonce single use, and applies its
+   authorization policy.
+
+   Client                                       Server
+     |                                             |
+     |     Unsigned or unsolicited signed request  |
+     |-------------------------------------------->|
+     |                                             |
+     |        Accept-Signature challenge           |
+     |<--------------------------------------------|
+     |                                             |
+     |        Signed request with server nonce     |
+     |-------------------------------------------->|
+     |                                             |
+     |        Successful establishment response    |
+     |<--------------------------------------------|
+     |                                             |
+     |              Tunnel traffic                 |
+     |<===========================================>|
+
+       Figure 1: Authentication exchange when a challenge is required
+
+   If the server accepts an unsolicited signature, it sends the
+   successful establishment response directly.  Each establishment
+   requires a fresh nonce.  Retries can use a different connection;
+   authentication of one request does not authenticate other requests on
+   either connection.
+
+4.  Signature Requirements
+
+   The server MUST enforce the signature requirements below, whether the
+   client sends an unsolicited signature or responds to an Accept-
+   Signature challenge.  The client MUST generate the signature in
+   accordance with [HTTP-SIG].  The Signature-Input and Signature fields
+   MUST be sent in the request header section so that authentication can
+   complete before tunnel establishment.  A signature accepted for
+   authentication MUST satisfy all applicable requirements; coverage
+   from separate signatures MUST NOT be combined to satisfy them.
+
+4.1.  Covered Components
+
+   The signature MUST cover the components listed below for the request
+   form in use.  The server MUST reject authentication if any required
+   component is not covered, even if the signature is otherwise valid.
+
+           +==================+===============================+
+           | Request form     | Required components           |
+           +==================+===============================+
+           | Standard CONNECT | @method, @authority           |
+           +------------------+-------------------------------+
+           | Extended CONNECT | @method, @authority, @scheme, |
+           |                  | @path, @query, @protocol      |
+           +------------------+-------------------------------+
+           | HTTP/1.1 Upgrade | @method, @authority, @scheme, |
+           |                  | @path, @query, upgrade        |
+           +------------------+-------------------------------+
+
+                                 Table 1
+
+   For standard CONNECT, @authority identifies the target host and port.
+   Coverage of @path and @query is not required.  For extended CONNECT
+   and HTTP/1.1 Upgrade, the URI components identify the requested
+   resource, including any destination information conveyed in its path
+   or query.  The @query component MUST be covered even when no query is
+   present, using the value defined in Section 2.2.7 of [HTTP-SIG].
+
+   The server MUST require coverage of any additional request fields on
+   which it relies to determine client identity, the tunnel destination,
+   or permissions for the requested tunnel.  When issuing a challenge,
+   it MUST include all required components in Accept-Signature.
+
+   Clients MAY cover components beyond these requirements.  When
+   responding to a challenge, components not requested by the server can
+   be covered by a separate signature, as described in Section 5.2 of
+   [HTTP-SIG].
+
+   The upgrade component covers the Upgrade field using the field
+   canonicalization rules in Section 2.1 of [HTTP-SIG].
+
+4.2.  The @protocol Derived Component
+
+   The @protocol derived component identifies the protocol requested by
+   an extended CONNECT request.  Its value is the value of the :protocol
+   pseudo-header field defined in Section 4 of [HTTP2-EXTCONNECT] and
+   used in HTTP/3 by [HTTP3-EXTCONNECT], without case conversion or
+   other normalization.  For example, a request containing :protocol
+   with the value connect-udp produces the following signature base
+   line:
+
+   "@protocol": connect-udp
+
+   This component is derived from a request.  It can also be referenced
+   in a response signature using the req parameter as defined in
+   Section 2.4 of [HTTP-SIG].  If the request is not an extended CONNECT
+   request with a valid :protocol pseudo-header field, the component
+   cannot be derived and signature base generation MUST fail.  In
+   particular, @protocol is not derived from the HTTP/1.1 Upgrade field.
+
+4.3.  Signature Parameters
+
+   The signature MUST include the following parameters defined in
+   Section 2.3 of [HTTP-SIG]:
+
+   *  nonce: a fresh client-generated value for an unsolicited
+      signature, or the exact value supplied by the server when
+      responding to an Accept-Signature challenge.  The client MUST NOT
+      substitute its own value in a challenge response.
+
+   *  created: the time at which the client generated the signature.
+
+   *  expires: the signature expiration time, which MUST be later than
+      created.
+
+   Client-generated nonces MUST be unpredictable and MUST NOT be reused
+   with the same signing key.  The server MUST enforce a maximum
+   signature lifetime (expires minus created) and SHOULD keep it short,
+   on the order of minutes.  It MUST enforce the signature validity
+   period and nonce single use.  For a challenge response, it MUST also
+   enforce the challenge lifetime; signature expiration does not extend
+   that lifetime.  These checks apply when authenticating the
+   establishment request, not to the resulting tunnel's lifetime.
+
+   Additional parameters can be required by the challenge or another
+   applicable profile.  This document does not mandate keyid, alg, or a
+   particular tag value; their use follows [HTTP-SIG] and the applicable
+   deployment or profile.
+
+4.4.  The proxy-authority Signature Parameter
+
+   The proxy-authority signature metadata parameter identifies the
+   intended proxy.  It MUST be included in signatures authenticating
+   standard CONNECT, whether unsolicited or challenged, and MUST NOT be
+   used for extended CONNECT or HTTP/1.1 Upgrade.  In Signature-Input,
+   its value is a String containing the proxy hostname or IP address
+   followed by a colon and an explicit port.  It is protected by the
+   signature through @signature-params as defined in Section 2.3 of
+   [HTTP-SIG].
+
+   The client MUST derive the value from its proxy configuration,
+   retaining the configured hostname rather than substituting a DNS-
+   resolved address.  The value MUST be normalized as follows:
+
+   *  Hostnames are lowercase ASCII, with internationalized labels
+      represented as A-labels [IDNA] and any final dot omitted.
+
+   *  IPv4 addresses use four decimal octets without leading zeros.
+      IPv6 addresses use the hexadecimal representation specified in
+      Section 4 of [IPV6-TEXT], enclosed in square brackets.  IPv6 zone
+      identifiers are not permitted.
+
+   *  The port is a decimal integer from 1 through 65535 without leading
+      zeros.  It MUST be included even when it is the default port for
+      the configured proxy scheme.  For example, https://proxy.example
+      produces proxy.example:443.
+
+   The value MUST NOT contain a scheme, user information, path, query,
+   or fragment.  For example, proxy.example:8080 and [2001:db8::1]:443
+   are valid values.  The proxy MUST reject authentication unless the
+   value is in this normalized form and exactly matches one of its
+   configured proxy identities.  An identity MUST NOT be accepted solely
+   because it appears in the request.
+
+   An Accept-Signature challenge for standard CONNECT MUST include
+   proxy-authority in its Boolean true form (;proxy-authority,
+   equivalent to ;proxy-authority=?1).  This requests inclusion of the
+   parameter without specifying a proxy identity.  The client MUST
+   supply the normalized String value derived from its proxy
+   configuration in Signature-Input.  The proxy checks that value
+   against its configured identities as described above.
+
+5.  Authentication Procedure
+
+5.1.  Unsolicited Signatures
+
+   A client MAY sign its initial request using a fresh client-generated
+   nonce and the requirements in Section 4.  Signature selection follows
+   the applicable profile or server policy; a particular signature label
+   is not required.  The server MAY accept the signature if its policy
+   permits unsolicited authentication and all checks in Section 5.4
+   succeed.  Otherwise, it can require a server-provided nonce as
+   described below.
+
+   Servers that accept both kinds of nonce MUST distinguish challenge
+   responses from unsolicited signatures, for example through a
+   recognizable server nonce format or retained challenge metadata.  An
+   expired or consumed server nonce MUST NOT be accepted as a client-
+   generated nonce.  If the server cannot safely make this distinction,
+   it MUST require a fresh challenge.  A policy that requires a server-
+   provided nonce MUST NOT fall back to unsolicited authentication.
+
+5.2.  Issuing a Challenge
+
+   For an otherwise acceptable tunnel establishment request without a
+   signature, or with an unsolicited signature when policy requires a
+   server-provided nonce, the server MUST return 403 (Forbidden) with an
+   Accept-Signature field.  The field MUST contain one dictionary member
+   specifying the signature required by this mechanism, using the syntax
+   in Section 5.1 of [HTTP-SIG].  It MUST specify the coverage required
+   by Section 4, a fresh nonce value, and the created and expires
+   parameters in their Boolean true form.  The response MUST include
+   Cache-Control: no-store.  For standard CONNECT, the challenge MUST
+   also include proxy-authority as specified in Section 4.4.
+
+   The nonce MUST be unpredictable and unique among challenges that the
+   server can still accept.  The server MUST assign each challenge a
+   bounded lifetime and SHOULD keep that lifetime short, on the order of
+   minutes.
+
+   The server MUST associate the nonce with the requested signature
+   label, coverage, parameters, expiration, and the request's method,
+   target, and tunnel protocol.  This association MUST be protected
+   against modification by the client.  A challenge MUST NOT be bound to
+   the connection on which it was issued.
+
+5.3.  Responding to a Challenge
+
+   Clients MUST support responding to Accept-Signature challenges.
+
+   On receiving a 403 response with Accept-Signature, the client MUST
+   check that the challenge satisfies Section 4 and is compatible with
+   its signing policy.  If it cannot satisfy the challenge, it MUST fail
+   the establishment attempt rather than retry with weaker coverage or
+   parameters.
+
+   The client retries the establishment request with the same method,
+   target, and tunnel protocol.  It MUST generate the requested
+   signature following Section 5.2 of [HTTP-SIG], using the same
+   signature label and exact set of component identifiers, including
+   their parameters, as the challenge.  It MUST include the supplied
+   nonce and generate created and expires values as specified in
+   Section 4.3.  The retry MAY use the same connection or a different
+   connection.
+
+   The client MUST NOT reuse a signed request for another establishment
+   attempt.  If a retry is needed after a signed request fails or its
+   outcome is unknown, the client MUST generate a fresh client nonce or
+   obtain a fresh challenge, as permitted by server policy.  A client
+   challenged to use a server nonce MUST respond to that challenge or
+   fail the attempt.  Clients MUST limit automatic retries to avoid an
+   unbounded challenge-response loop.
+
+5.4.  Validating and Accepting a Request
+
+   Before accepting a signed request, the server MUST:
+
+   1.  Select the signature under the applicable profile or policy.  For
+       a challenge response, identify the issued challenge using the
+       nonce, select the requested signature label, and verify that the
+       challenge is unexpired and applies to the request's method,
+       target, and tunnel protocol.  For an unsolicited signature,
+       verify that server policy permits its use.
+
+   2.  Check the signature coverage and parameters against Section 4 and
+       any issued challenge, and verify the signature according to
+       Section 3.2 of [HTTP-SIG].  For standard CONNECT, this includes
+       checking proxy-authority against the proxy's configured
+       identities.
+
+   3.  Check that the signature lifetime does not exceed the server's
+       maximum and that the current time falls within the signature
+       validity period.  The server MAY allow a small, bounded tolerance
+       for clock skew.
+
+   4.  Atomically check that the nonce is unused and record its
+       consumption.  For a client-generated nonce, the replay record
+       MUST be scoped to the verified signing key and nonce value,
+       independent of signature labels, key identifier aliases, or
+       request targets.  For a server-provided nonce, the challenge MUST
+       be consumed at most once.  If already consumed, authentication
+       MUST fail.
+
+   Single-use enforcement MUST apply across all connections and server
+   instances that can accept the signature.  Client nonce records MUST
+   be retained through signature expiration, including any clock skew
+   tolerance.  Server nonce consumption MUST be recorded for the entire
+   remaining challenge lifetime.  If single-use enforcement cannot be
+   guaranteed, the server MUST NOT accept the request.  An invalid
+   signature MUST NOT create a replay record or consume a challenge.
+   Once consumed, a nonce MUST NOT become usable again during its
+   acceptance window, including when authorization or subsequent tunnel
+   establishment fails.
+
+   After authentication, the server applies its authorization policy.
+   It MUST NOT open the requested upstream connection, forward tunnel
+   traffic, or send a successful establishment response before
+   authentication and authorization succeed.  Successful establishment
+   uses the response defined by the applicable tunnel protocol: a 2xx
+   response for CONNECT or a 101 (Switching Protocols) response for
+   HTTP/1.1 Upgrade.  Authentication applies only to this request.
+
+5.5.  Error Handling
+
+   Malformed authentication fields SHOULD result in 400 (Bad Request).
+   For well-formed requests, failed authentication, including an invalid
+   signature, a replayed client nonce, or an expired or consumed server
+   nonce, MUST result in 403 (Forbidden).  The server MAY include a
+   fresh Accept-Signature challenge if another attempt could succeed,
+   and MUST do so in the cases specified in Section 5.2.
+
+   If authentication succeeds but authorization fails, the server MUST
+   return 403 without an Accept-Signature challenge.  A client receiving
+   a 403 response without a challenge MUST NOT automatically retry using
+   this procedure.  Other failures, such as an unreachable tunnel
+   destination, use the error handling of the applicable tunnel
+   protocol.
+
+6.  Examples
+
+   These examples show successful exchanges at 2026-10-06T00:00:00Z.
+   All request signatures use Ed25519 and expire 60 seconds later; the
+   server accepts signatures and any challenges during that interval.
+   Keys and nonce values are for illustration only and are not suitable
+   for deployment.  Long lines are folded using [FOLDING]; folding is
+   not part of the messages.
+
+   The client public key used in all three examples is:
+
+   {
+     "kty": "OKP",
+     "crv": "Ed25519",
+     "x": "LJIz3J11mSpiRKfUwM8TReBzc4OEGvurSYNJ19K4AM8",
+     "alg": "Ed25519",
+     "kid": "client-key"
+   }
+
+                    Figure 2: Example client public key
+
+6.1.  Standard CONNECT with WIMSE Credentials
+
+   A workload connects to the proxy at https://proxy.example and
+   requests a TCP tunnel to service.example:443.  The proxy uses WIMSE
+   credentials [WIMSE-HTTPSIG] and trusts the following issuer public
+   key for the example.com trust domain:
+
+   {
+     "kty": "OKP",
+     "crv": "Ed25519",
+     "x": "uJqIC9mMU6Dl3roQZqy6CIrseaodOv_hjPGhel1Q3mk",
+     "alg": "Ed25519",
+     "kid": "issuer-key"
+   }
+
+                  Figure 3: Example WIT issuer public key
+
+   The Workload Identity Token (WIT) [WIMSE-CREDS] in the signed request
+   identifies wimse://example.com/workload-a, is issued by
+   https://issuer.example, and binds the client public key above in
+   cnf.jwk.  Its iat is 1791244740 and its exp is 1791248400.  The
+   token's protected header is:
+
+   {"alg":"Ed25519","typ":"wit+jwt","kid":"issuer-key"}
+
+                       Figure 4: WIT protected header
+
+   Editorial note: this example anticipates changes to WIMSE omitting
+   @path and @query for standard CONNECT.  It is not fully conformant to
+   draft-ietf-wimse-http-signature-07.
+
+   The proxy permits unsolicited signatures.  The client sends its WIT
+   and signature with a fresh client-generated nonce.  The proxy-
+   authority value is proxy.example:443, derived from the configured
+   proxy URI.  The wimse-aud value is the proxy identity configured for
+   this WIMSE deployment.  Both identify the intended proxy and are
+   checked independently.  The signing key and algorithm come from the
+   WIT, so keyid and alg are absent from Signature-Input.  Response
+   signing is not requested.
+
+NOTE: '\' line wrapping per RFC 8792
+
+CONNECT service.example:443 HTTP/1.1
+Host: service.example:443
+Workload-Identity-Token: eyJhbGciOiJFZDI1NTE5IiwidHlwIjoid2l0K2p3dCIsIm\
+  tpZCI6Imlzc3Vlci1rZXkifQ.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlIiwi\
+  c3ViIjoid2ltc2U6Ly9leGFtcGxlLmNvbS93b3JrbG9hZC1hIiwiaWF0IjoxNzkxMjQ0N\
+  zQwLCJleHAiOjE3OTEyNDg0MDAsImNuZiI6eyJqd2siOnsia3R5IjoiT0tQIiwiY3J2Ij\
+  oiRWQyNTUxOSIsIngiOiJMSkl6M0oxMW1TcGlSS2ZVd004VFJlQnpjNE9FR3Z1clNZTko\
+  xOUs0QU04IiwiYWxnIjoiRWQyNTUxOSIsImtpZCI6ImNsaWVudC1rZXkifX19.9G8ShrC\
+  Bs3m9kJDvRo54mRs-Cyczot3oPeX0u5qUNyQ5Q5b7A3I0G-24ZGOGZBmp97AAoCzdYvr6\
+  g1A8gIK6Ag
+Signature-Input: sig1=("@method" "@authority" \
+  "workload-identity-token");created=1791244800;expires=1791244860;\
+  nonce="sGcptixoRlVhKrE6YIc1oqzQP3vBoc64";\
+  tag="wimse-workload-to-workload";proxy-authority="proxy.example:443";\
+  wimse-aud="https://proxy.example"
+Signature: sig1=:5qi1gPTvGrDF4B5R1OK5L+4VmD85WCIPlM+bHm7UUmAEehf4Wv/TRp\
+  0a5KNeDKuQUQfwQ4n40519anF+8skaDQ==:
+
+                   Figure 5: Signed CONNECT request
+
+   The proxy validates the WIT, audience, proxy authority, and request
+   signature, atomically records the client nonce under the verified
+   signing key, and authorizes the tunnel.  It responds without an
+   Accept-Signature exchange:
+
+   HTTP/1.1 200 Connection Established
+
+                         Figure 6: CONNECT success
+
+6.2.  Extended CONNECT for UDP Proxying
+
+   This example uses CONNECT-UDP [CONNECT-UDP] over HTTP/2.  The same
+   fields and signature apply to HTTP/3.  Pseudo-header fields and
+   header fields are shown in decoded form; connection setup and
+   protocol settings negotiation are omitted.  The proxy maps client-key
+   to the client public key in Figure 2 through local configuration and
+   requires a server-provided nonce.
+
+   The client requests a UDP tunnel to 192.0.2.1:443:
+
+   :method: CONNECT
+   :protocol: connect-udp
+   :scheme: https
+   :authority: proxy.example
+   :path: /.well-known/masque/udp/192.0.2.1/443/
+   capsule-protocol: ?1
+
+                   Figure 7: Initial CONNECT-UDP request
+
+   The proxy requests a signature:
+
+   NOTE: '\' line wrapping per RFC 8792
+
+   :status: 403
+   cache-control: no-store
+   content-length: 0
+   accept-signature: sig1=("@method" "@authority" "@scheme" "@path" \
+     "@query" "@protocol");nonce="xAiQNf5KcJLEmgyoVmuNckWgvuNdvmCq";\
+     created;expires;keyid="client-key";alg="ed25519"
+
+                      Figure 8: CONNECT-UDP challenge
+
+   The client sends the signed request:
+
+NOTE: '\' line wrapping per RFC 8792
+
+:method: CONNECT
+:protocol: connect-udp
+:scheme: https
+:authority: proxy.example
+:path: /.well-known/masque/udp/192.0.2.1/443/
+capsule-protocol: ?1
+signature-input: sig1=("@method" "@authority" "@scheme" "@path" \
+  "@query" "@protocol");created=1791244800;expires=1791244860;\
+  nonce="xAiQNf5KcJLEmgyoVmuNckWgvuNdvmCq";keyid="client-key";\
+  alg="ed25519"
+signature: sig1=:FbyVrcdlNx9SrAKNJBgDhoEHxrx22Lf/moVSW5F23kqv8hwbc9u1xc\
+  xyh5qRopJlsPpCWgRFvonN/olXL4z5Cw==:
+
+                 Figure 9: Signed CONNECT-UDP request
+
+   After validation and authorization, the proxy accepts the tunnel:
+
+   :status: 200
+   capsule-protocol: ?1
+
+                       Figure 10: CONNECT-UDP success
+
+6.3.  HTTP/1.1 WebSocket Upgrade
+
+   A client opens a WebSocket at ws://chat.example/socket.  The server
+   maps client-key to the public key in Figure 2.  The handshake follows
+   [WEBSOCKET] and additionally covers its key and version fields.  This
+   example assumes a client capable of setting the signature fields.
+   The server requires a server-provided nonce even for a valid
+   unsolicited signature.
+
+   The client initially sends an unsolicited signature with its own
+   nonce:
+
+NOTE: '\' line wrapping per RFC 8792
+
+GET /socket HTTP/1.1
+Host: chat.example
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dHVubmVsLWV4YW1wbGUtMQ==
+Sec-WebSocket-Version: 13
+Signature-Input: sig1=("@method" "@authority" "@scheme" "@path" \
+  "@query" "upgrade" "sec-websocket-key" "sec-websocket-version");\
+  created=1791244800;expires=1791244860;\
+  nonce="tldju9XaHCa61VGB2yTC8vWw9dsm8oDs";keyid="client-key";\
+  alg="ed25519"
+Signature: sig1=:+TiZgHUrj8II+HLQAlEOfzR67zpxu1iop6i6oLlGlnWzehK0WEgTPn\
+  juUHlI7baWRnjPWljilteYo/rUU5/BAg==:
+
+           Figure 11: Unsolicited signed WebSocket request
+
+   The server requires a fresh server nonce and challenges the client:
+
+   NOTE: '\' line wrapping per RFC 8792
+
+   HTTP/1.1 403 Forbidden
+   Cache-Control: no-store
+   Content-Length: 0
+   Accept-Signature: sig1=("@method" "@authority" "@scheme" "@path" \
+     "@query" "upgrade" "sec-websocket-key" "sec-websocket-version");\
+     nonce="EAhASAIcKgZfGHxsn8qtTBT7Tlzlp0qg";created;expires;\
+     keyid="client-key";alg="ed25519"
+
+                       Figure 12: WebSocket challenge
+
+   The client retries with the server-provided nonce and a new
+   signature:
+
+NOTE: '\' line wrapping per RFC 8792
+
+GET /socket HTTP/1.1
+Host: chat.example
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dHVubmVsLWV4YW1wbGUtMg==
+Sec-WebSocket-Version: 13
+Signature-Input: sig1=("@method" "@authority" "@scheme" "@path" \
+  "@query" "upgrade" "sec-websocket-key" "sec-websocket-version");\
+  created=1791244800;expires=1791244860;\
+  nonce="EAhASAIcKgZfGHxsn8qtTBT7Tlzlp0qg";keyid="client-key";\
+  alg="ed25519"
+Signature: sig1=:3ZOPO6A4SOYlAca2kDi+aoVKqrkFovGYRBaoTxD5BXkSmUZuz/79uW\
+  4T8VAQmSc2RkdRsSdSG3okLyUM5IvfDQ==:
+
+                 Figure 13: Signed WebSocket request
+
+   After validation and authorization, the server switches protocols:
+
+   HTTP/1.1 101 Switching Protocols
+   Upgrade: websocket
+   Connection: Upgrade
+   Sec-WebSocket-Accept: P8RU/XYB7aRBEQ1oQfgq2shti/c=
+
+                        Figure 14: WebSocket success
+
+7.  Security Considerations
+
+   The security considerations of [HTTP-SIG] apply.  A valid signature
+   proves possession of the signing key; the server still needs a
+   trusted association between that key and a client identity and an
+   authorization decision for the requested tunnel.  Components used in
+   that decision need to be covered as specified in Section 4.1.
+   Uncovered fields can be modified without invalidating the signature.
+
+   Replay protection depends on bounded signature lifetimes and atomic
+   single-use enforcement across all server instances that accept a
+   signature.  Random client nonces do not prevent replay without this
+   state.  Server-provided nonces also bind signatures to fresh
+   challenges, but expiring, self-contained challenges still require
+   single-use enforcement.  Loss or eviction of replay state MUST NOT
+   allow previously accepted requests to be accepted again; affected
+   requests MUST be rejected until that protection can be guaranteed.
+
+   Without TLS or equivalent channel protection, an attacker can capture
+   a signed establishment request and replay it on another connection,
+   racing the client.  Atomic single-use enforcement accepts at most one
+   copy, but cannot ensure that the legitimate client's copy wins.  With
+   either client-generated or server-provided nonces, the attacker can
+   therefore obtain the tunnel if its copy is accepted first.
+
+   For standard CONNECT, @authority identifies the tunnel destination,
+   not the proxy.  The proxy-authority parameter binds the signature to
+   the intended proxy, provided both parties check it against their
+   configuration.  Proxies sharing an accepted identity and signing-key
+   trust MUST coordinate replay protection if they can accept the same
+   signature.  The parameter does not bind a transport scheme or
+   authenticate the proxy to the client, and does not prevent live relay
+   to the intended proxy.  Additional audience requirements, such as
+   WIMSE's wimse-aud, continue to apply independently.
+
+   This mechanism does not authenticate the server or protect tunnel
+   traffic.  Without a protected transport, credentials and request
+   details are visible, and an active attacker can alter challenges or
+   forge responses.  An attacker can also relay a server's challenge to
+   a legitimate client and use the signed response to establish a tunnel
+   under the attacker's control.  Fresh, single-use nonces do not
+   prevent this live relay or subsequent tunnel hijacking.  TLS or
+   equivalent channel protection can address these risks without being a
+   prerequisite for this mechanism.
+
+   Clients need to apply their signing policy to challenges, including
+   restrictions on keys and algorithms, rather than treating Accept-
+   Signature as authority to use arbitrary credentials.  Servers need to
+   enforce their own coverage and algorithm requirements even if a
+   challenge has been altered in transit.
+
+   Challenge issuance, signature verification, and replay records can be
+   used to exhaust server resources.  Servers SHOULD bound
+   authentication state and rate-limit authentication attempts.
+   Resource limits MUST NOT cause requests to be accepted without replay
+   checks.
+
+8.  IANA Considerations
+
+   This document requests registration of the following entry in the
+   "HTTP Signature Derived Component Names" registry established by
+   Section 6.4 of [HTTP-SIG], using the template in Section 6.4.1 of
+   [HTTP-SIG]:
+
+   *  Name: @protocol
+
+   *  Description: The value of the :protocol pseudo-header field in an
+      extended CONNECT request
+
+   *  Status: Active
+
+   *  Target: Request
+
+   *  Reference: Section 4.2 of this document
+
+   This document also requests registration of the following entry in
+   the "HTTP Signature Metadata Parameters" registry established by
+   Section 6.3 of [HTTP-SIG], using the template in Section 6.3.1 of
+   [HTTP-SIG]:
+
+   *  Name: proxy-authority
+
+   *  Description: The hostname or IP address and explicit port of the
+      intended proxy for a standard CONNECT request
+
+   *  Reference: Section 4.4 of this document
+
+9.  References
+
+9.1.  Normative References
+
+   [HTTP]     Fielding, R., Ed., Nottingham, M., Ed., and J. Reschke,
+              Ed., "HTTP Semantics", STD 97, RFC 9110,
+              DOI 10.17487/RFC9110, June 2022,
+              <https://www.rfc-editor.org/rfc/rfc9110>.
+
+   [HTTP2-EXTCONNECT]
+              McManus, P., "Bootstrapping WebSockets with HTTP/2",
+              RFC 8441, DOI 10.17487/RFC8441, September 2018,
+              <https://www.rfc-editor.org/rfc/rfc8441>.
+
+   [HTTP3-EXTCONNECT]
+              Hamilton, R., "Bootstrapping WebSockets with HTTP/3",
+              RFC 9220, DOI 10.17487/RFC9220, June 2022,
+              <https://www.rfc-editor.org/rfc/rfc9220>.
+
+   [HTTP-SIG] Backman, A., Ed., Richer, J., Ed., and M. Sporny, "HTTP
+              Message Signatures", RFC 9421, DOI 10.17487/RFC9421,
+              February 2024, <https://www.rfc-editor.org/rfc/rfc9421>.
+
+   [IDNA]     Klensin, J., "Internationalized Domain Names for
+              Applications (IDNA): Definitions and Document Framework",
+              RFC 5890, DOI 10.17487/RFC5890, August 2010,
+              <https://www.rfc-editor.org/rfc/rfc5890>.
+
+   [IPV6-TEXT]
+              Kawamura, S. and M. Kawashima, "A Recommendation for IPv6
+              Address Text Representation", RFC 5952,
+              DOI 10.17487/RFC5952, August 2010,
+              <https://www.rfc-editor.org/rfc/rfc5952>.
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119,
+              DOI 10.17487/RFC2119, March 1997,
+              <https://www.rfc-editor.org/rfc/rfc2119>.
+
+   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
+              2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
+              May 2017, <https://www.rfc-editor.org/rfc/rfc8174>.
+
+9.2.  Informative References
+
+   [CONNECT-UDP]
+              Schinazi, D., "Proxying UDP in HTTP", RFC 9298,
+              DOI 10.17487/RFC9298, August 2022,
+              <https://www.rfc-editor.org/rfc/rfc9298>.
+
+   [FOLDING]  Watsen, K., Auerswald, E., Farrel, A., and Q. Wu,
+              "Handling Long Lines in Content of Internet-Drafts and
+              RFCs", RFC 8792, DOI 10.17487/RFC8792, June 2020,
+              <https://www.rfc-editor.org/rfc/rfc8792>.
+
+   [WEBSOCKET]
+              Fette, I. and A. Melnikov, "The WebSocket Protocol",
+              RFC 6455, DOI 10.17487/RFC6455, December 2011,
+              <https://www.rfc-editor.org/rfc/rfc6455>.
+
+   [WIMSE-CREDS]
+              Campbell, B., Salowey, J. A., Schwenkschuster, A.,
+              Sheffer, Y., and Y. Rosomakho, "WIMSE Workload
+              Credentials", Work in Progress, Internet-Draft, draft-
+              ietf-wimse-workload-creds-02, 2 July 2026,
+              <https://datatracker.ietf.org/doc/html/draft-ietf-wimse-
+              workload-creds-02>.
+
+   [WIMSE-HTTPSIG]
+              Salowey, J. A. and Y. Sheffer, "WIMSE Workload-to-Workload
+              Authentication with HTTP Signatures", Work in Progress,
+              Internet-Draft, draft-ietf-wimse-http-signature-07, 20
+              September 2026, <https://datatracker.ietf.org/doc/html/
+              draft-ietf-wimse-http-signature-07>.
+
+Acknowledgments
+
+   TODO acknowledge.
+
+Author's Address
+
+   Yaroslav Rosomakho
+   Zscaler
+   Email: yrosomakho@zscaler.com

@@ -1,0 +1,2176 @@
+<!DOCTYPE html>
+<html lang="en" class="Internet-Draft">
+<head>
+<meta charset="utf-8">
+<meta content="Common,Latin" name="scripts">
+<meta content="initial-scale=1.0" name="viewport">
+<title>Authenticating HTTP Tunnels with HTTP Message Signatures</title>
+<meta content="Yaroslav Rosomakho" name="author">
+<meta content="
+       This document specifies client authentication for HTTP tunnel establishment
+using HTTP Message Signatures. It covers the CONNECT method, extended CONNECT
+in HTTP/2 and HTTP/3, and HTTP/1.1 Upgrade. It defines signature coverage and
+replay protection using either a client-generated nonce or a server-provided
+nonce obtained through an Accept-Signature challenge. 
+    " name="description">
+<meta content="xml2rfc 3.34.1" name="generator">
+<meta content="http" name="keyword">
+<meta content="tunnels" name="keyword">
+<meta content="signatures" name="keyword">
+<meta content="draft-rosomakho-httpbis-tunnels-signatures-latest" name="ietf.draft">
+<!-- Generator version information:
+  xml2rfc 3.34.1
+    Python 3.14.8
+    ConfigArgParse 1.8.0
+    google-i18n-address 3.1.1
+    intervaltree 3.2.1
+    Jinja2 3.1.6
+    lxml 6.1.1
+    natsort 8.4.0
+    platformdirs 4.13.4
+    pycountry 24.6.1
+    PyYAML 6.0.3
+    requests 2.33.1
+    wcwidth 0.9.2
+-->
+<link href="draft-rosomakho-httpbis-tunnels-signatures.xml" rel="alternate" type="application/rfc+xml">
+<link href="#copyright" rel="license">
+<style type="text/css">@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local('Lora SemiBold'), local('Lora-SemiBold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-semibold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  color-scheme: light dark;
+  --background-color: #fff;
+  --text-color: #222;
+  --title-color: #191919;
+  --link-color: #2a6496;
+  --highlight-color: #f9f9f9;
+  --line-color: #eee;
+  --pilcrow-weak: #ddd;
+  --pilcrow-strong: #bbb;
+  --small-font-size: 14.5px;
+  --font-mono: 'Oxygen Mono', monospace;
+  --font-title: "Sofia Sans Semi Condensed", sans-serif;
+  scrollbar-color: #bbb #eee;
+}
+body {
+  max-width: 600px;
+  margin: 75px auto;
+  padding: 0 5px;
+  color: var(--text-color);
+  background-color: var(--background-color);
+  font: 16px/22px "Lora", serif;
+  scroll-behavior: smooth;
+}
+
+.ears {
+  display: none;
+}
+
+/* headings */
+section {
+  clear: both;
+}
+.section-number {
+  padding-right: 0.5em;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-title);
+  font-weight: 680;
+  margin: 0.8em 0 0.3em;
+  font-size-adjust: 0.5;
+  color: var(--title-color);
+}
+h1 {
+  &#title {
+    font-size: 32px;
+    line-height: 40px;
+    clear: both;
+    margin: 1.5em 0 0.2em;
+  }
+  &#rfcnum {
+    margin: 1.5em 0 0.2em;
+    & + h1#title {
+      margin: 0.2em 0;
+    }
+  }
+}
+
+h1, h2, h3 {
+  font-size: 22px;
+  line-height: 27px;
+}
+h4, h5, h6 {
+  font-size: 20px;
+  line-height: 24px;
+}
+
+/* general structure */
+.author {
+  padding-bottom: 0.3em;
+  vertical-align: top;
+}
+#abstract+p {
+  font-size: 18px;
+  line-height: 24px;
+  & code, & samp, & tt {
+    font-size: 16px;
+    line-height: 0;
+  }
+}
+
+p {
+  padding: 0;
+  margin: 0.5em 0;
+  text-align: left;
+}
+div {
+  margin: 0;
+}
+.alignRight {
+  margin: 1em 0;
+  &.art-text {
+    background-color: var(--highlight-color);
+    border: 1px solid var(--line-color);
+    border-radius: 3px;
+    padding: 0.5em 1em 0;
+    margin-bottom: 0.5em;
+    & pre {
+      padding: 0;
+      width: auto;
+    }
+  }
+  & > *:first-child {
+    border: none;
+    margin: 0;
+    float: right;
+    clear: both;
+  }
+  & > *:nth-child(2) {
+    clear: both;
+    display: block;
+    border: none;
+  }
+}
+svg {
+  display: block;
+  /* font-family isn't space-separated, but =~ will have to do */
+  &[font-family~="monospace" i], & [font-family~="monospace" i] {
+    font-family: var(--font-mono);
+  }
+}
+.alignCenter {
+  margin: 1em 0;
+  &.art-text {
+    background-color: var(--highlight-color);
+    border: 1px solid var(--line-color);
+    border-radius: 3px;
+    padding: 0.5em 1em 0;
+    margin-bottom: 0.5em;
+    & pre {
+      padding: 0;
+      width: auto;
+    }
+  }
+  & > *:first-child {
+    border: none;
+    /* this isn't optimal, but it's an existence proof.  PrinceXML doesn't
+       support flexbox yet.
+    */
+    display: table;
+    margin: 0 auto;
+  }
+}
+
+/* lists */
+ol, ul {
+  padding: 0;
+  margin: 0 0 0.5em 2em;
+  & :is(ol, ul) {
+    margin-left: 1em;
+  }
+}
+li {
+  margin: 0 0 0.25em 0;
+}
+ul.empty, .ulEmpty {
+  list-style-type: none;
+  & li {
+    margin-top: 0.5em;
+  }
+}
+:is(ul, ol).compact, .ulCompact, .olCompact {
+  margin: 0 0 0 2em;
+  & li {
+    margin: 0;
+    & :first-child { margin-top: 0; }
+    & :last-child { margin-bottom: 0; }
+  }
+}
+
+/* definition lists */
+dl {
+  clear: left;
+  --indent: 3ch;
+  /* --indent: attr(indent ch); not supported in any browser, but we can dream */
+  &.olPercent {
+    --indent: 5ch;
+    & > dt {
+      min-width: calc(var(--indent) - 2ch);
+      float: none;
+    }
+  }
+
+  dl > dd > & {
+    margin-top: 0.5em;
+    margin-bottom: 0;
+  }
+
+  &:not(.dlNewline) > dt {
+    float: left;
+    margin-right: 2ch;
+    min-width: 8ch;
+  }
+  & > dd {
+    margin-bottom: .8em;
+    margin-left: var(--indent) !important; /* stupid element overrides */
+    min-height: 2ex;
+  }
+}
+:is(dl.compact, .dlCompact) > dd {
+  margin-bottom: 0;
+  & > :is(:first-child, .break:first-child + *) {
+    margin-top: 0;
+  }
+  & > :is(:last-child) {
+    margin-bottom: 0;
+  }
+}
+:is(dd, span).break {
+  display: none;
+}
+
+/* links */
+a {
+  text-decoration: none;
+  &[href] {
+    color: var(--link-color);
+    &:hover { text-decoration: underline; }
+    &.selfRef {
+      color: var(--text-color);
+      &:hover {
+        text-decoration: none;
+        background-color: var(--highlight-color);
+      }
+    }
+  }
+}
+.iref + a[href].internal {
+  color: var(--text-color);
+}
+a.xref:is(.cite, .auto), :is(#status-of-memo, #copyright) a {
+  white-space: nowrap;
+}
+
+/* Figures */
+tt, code, pre {
+  background-color: var(--highlight-color);
+  font: 14px/22px var(--font-mono);
+}
+tt, code {
+  /* changing the font for inline elements leads to different ascender
+     and descender heights; as we want to retain baseline alignment,
+     remove leading to avoid altering the final height of lines
+     note: this fails if these blocks take an entire line,
+     a different solution would be great */
+  line-height: 0;
+}
+:is(h1, h2, h3, h4, h5, h6) :is(tt, code) {
+  font-size: 84%;
+}
+pre {
+  border: 1px solid var(--line-color);
+  font-size: 13.5px;
+  line-height: 16px;
+  letter-spacing: -0.2px;
+  margin: 5px;
+  padding: 5px;
+}
+img {
+  max-width: 100%;
+}
+figure {
+  margin: 0.5em 0;
+  padding: 0;
+  & blockquote {
+    margin: 0.8em 0.4em 0.4em;
+  }
+}
+figcaption, caption {
+  font-style: italic;
+  margin: 0.5em 1.5em;
+  text-align: left;
+  caption-side: bottom;
+}
+@media screen {
+  /* Auto-collapse boilerplate. */
+  :is(#status-of-memo, #copyright) {
+    & p {
+      margin: -2px 0;
+      max-height: 0;
+      transition: max-height 2s ease, margin 0.5s ease 0.5s;
+      overflow: hidden;
+    }
+    &:hover p,
+    & h2:target ~ p {
+      margin: 0.5em 0;
+      max-height: 500px;
+      overflow: auto;
+    }
+  }
+  pre, svg {
+    display: inline-block;
+    /* In the horizontal direction, sometimes people make over-sized figures.
+       Scrollbars for those is therefore necessary: auto adds them as necessary..
+       In the vertical direction, the line-height can combine with the font
+       asender/descender height to produce scrollbars: hidden avoids that. */
+    overflow: auto hidden;
+  }
+  pre {
+    max-width: 100%;
+    width: calc(100% - 22px - 1em);
+  }
+  svg {
+    max-width: calc(100% - 22px - 1em);
+  }
+  figure pre {
+    display: block;
+    width: calc(100% - 25px);
+  }
+  :is(pre, svg) + .pilcrow {
+    display: inline-block;
+    vertical-align: text-bottom;
+    padding-bottom: 8px;
+  }
+}
+
+/* aside, blockquote */
+aside, blockquote {
+  margin-left: 0;
+  padding: 0 2em;
+  font-style: italic;
+}
+blockquote {
+  margin: 1em 0;
+  border-left: 2px var(--pilcrow-strong) solid;
+}
+cite {
+  display: block;
+  text-align: right;
+  font-style: italic;
+}
+
+/* tables */
+table {
+  width: auto;
+  max-width: 100%;
+  margin: 0 0 1em;
+  border-collapse: collapse;
+  &.right { margin-left: auto; }
+  &.center { margin-left: auto; margin-right: auto; }
+  &.left { margin-right: auto; }
+  & .text-left { text-align: left; }
+  & .text-center { text-align: center; }
+  & .text-right { text-align: right; }
+  & caption {
+    margin: 0;
+    padding: 3px 0 3px 1em;
+  }
+  & p { margin: 0; }
+}
+
+thead, tbody {
+  border: 1px solid var(--line-color);
+}
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 5px 10px;
+}
+th {
+  background-color: var(--line-color);
+}
+:is(tr:nth-child(2n), thead+tbody > tr:nth-child(2n+1)) > td {
+  background-color: var(--background-color);
+}
+:is(tr:nth-child(2n+1), thead+tbody > tr:nth-child(2n)) > td {
+  background-color: var(--highlight-color);
+}
+
+/* pilcrow */
+a.pilcrow {
+  margin-left: 3px;
+  opacity: 0.2;
+  user-select: none;
+  &[href] {
+    color: var(--pilcrow-weak);
+    &:hover { text-decoration: none; }
+  }
+  @media not print {
+    :hover > &, &:focus {
+      opacity: 1;
+    }
+    &[href]:hover {
+      color: var(--pilcrow-strong);
+      background-color: transparent;
+    }
+  }
+  @media print {
+    display: none;
+  }
+}
+
+/* misc */
+hr {
+  border: 0;
+  border-top: 1px solid var(--line-color);
+}
+.bcp14 {
+  font-variant: small-caps;
+  font-weight: 600;
+  font-size: var(--small-font-size);
+}
+.role {
+  font-variant: all-small-caps;
+}
+sub, sup {
+  line-height: 1;
+  font-size: 80%;
+}
+
+/* info block */
+#identifiers {
+  margin: 0;
+  font-size: var(--small-font-size);
+  line-height: 18px;
+  --identifier-width: 15ch;
+  & dt {
+    width: var(--identifier-width);
+    min-width: var(--identifier-width);
+    clear: left;
+    float: left;
+    text-align: right;
+    margin-right: 1ch;
+  }
+  & dd {
+    margin: 0;
+    margin-left: calc(1em + var(--identifier-width)) !important;
+    min-width: 5em;
+  }
+  & .authors {
+    & .author {
+      display: inline-block;
+      margin-right: 1.5em;
+    }
+    & .org {
+      font-style: italic;
+    }
+  }
+}
+
+/* The prepared/rendered info at the very bottom of the page */
+.docInfo {
+  color: #999;
+  font-size: 0.9em;
+  font-style: italic;
+  margin-top: 2em;
+  & .prepared {
+    float: right;
+  }
+}
+
+/* table of contents */
+#toc {
+  padding: 0.75em 0 2em 0;
+  margin-bottom: 1em;
+
+  & nav {
+    & ul {
+      margin: 0 0.5em 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    & li {
+      line-height: 1.3em;
+      margin: 2px 0;
+      padding-left: 1.2em;
+      text-indent: -1.2em;
+    }
+  }
+  & a.xref {
+    white-space: normal;
+  }
+}
+
+.references {
+  & > dt {
+    text-align: right;
+    font-weight: bold;
+    min-width: 10ch;
+    margin-right: 1.5ch;
+    &:target::before {
+      content: "⇒";
+      margin: 0 10px 0 -25px;
+    }
+  }
+  & > dd {
+    margin-left: 12ch !important;
+    overflow: visible;
+    & .refInstance {
+      margin-bottom: 0.8em;
+    }
+    & .ascii {
+      margin-bottom: 0.25em;
+    }
+  }
+}
+
+#rfc\.index\.index + ul {
+  margin-left: 0;
+}
+
+/* authors */
+address.vcard {
+  font-style: normal;
+  max-width: 20em;
+  margin: 1em auto 1em 0;
+
+  & .nameRole {
+    font-weight: 700;
+    margin-left: 0;
+  }
+  & .label {
+    margin: 0.5em 0;
+  }
+  & .type {
+    display: none;
+  }
+  & .alternative-contact {
+    margin: 0.5em 0 0.25em 0;
+  }
+  & .non-ascii {
+    margin: 0 0 0 2em;
+  }
+  & div.left {
+    text-align: left;
+  }
+  & div.right {
+    text-align: right;
+  }
+}
+
+hr.addr {
+  border-top: 1px dashed;
+  margin: 0;
+  color: #ddd;
+  max-width: calc(100% - 16px);
+}
+@media (min-width: 500px) {
+  #authors-addresses {
+    & > section {
+      column-count: 2;
+      column-gap: 20px;
+    }
+    & > section > h2 {
+      column-span: all;
+    }
+    /* hack for break-inside: avoid-column */
+    & address {
+      display: inline-block;
+      break-inside: avoid-column;
+    }
+  }
+}
+
+/* Comments */
+.rfcEditorRemove {
+  & p:first-of-type {
+    font-style: italic;
+  }
+}
+.cref {
+  background-color: rgba(249, 232, 105, 0.3);
+  padding: 2px 4px;
+}
+.crefSource {
+  font-style: italic;
+}
+
+@media screen {
+  #toc {
+    & nav {
+      font-family: var(--font-title);
+      font-weight: 360;
+      & > ul { margin-bottom: 2em; }
+      & ul {
+        margin: 0 0 0 4px;
+        & :is(p, li) {
+          margin: 2px 0;
+        }
+      }
+    }
+    & a.toplink {
+      float: right;
+    }
+  }
+}
+@media not screen {
+  #toc a.toplink {
+    display: none;
+  }
+}
+
+
+/* TOC layout for smaller screens */
+@media screen and (max-width: 929px) {
+  #toc {
+    position: fixed;
+    z-index: 2;
+    top: 0;
+    right: 0;
+    padding: 1px 0 0 0;
+    margin: 0;
+    border-bottom: 1px solid #ccc;
+    opacity: 0.6;
+    & h2 {
+      margin: 0;
+      padding: 2px 0 2px 6px;
+      padding-right: 1em;
+      font-size: 18px;
+      line-height: 24px;
+      min-width: 190px;
+      text-align: right;
+      background-color: #444;
+      color: white;
+      cursor: pointer;
+      &::before { /* css hamburger */
+        float: right;
+        position: relative;
+        width: 1em;
+        height: 1px;
+        left: -164px;
+        margin: 8px 0 0 0;
+        background: white none repeat scroll 0 0;
+        box-shadow: 0 4px 0 0 white, 0 8px 0 0 white;
+        content: "";
+      }
+    }
+    & nav {
+      display: none;
+      background-color: var(--background-color);
+      padding: 0.5em 1em 1em;
+      overflow: auto;
+      overscroll-behavior: contain;
+      height: calc(100vh - 48px);
+      border-left: 1px solid #ddd;
+    }
+    &.active {
+      opacity: 1;
+      & nav { display: block; }
+    }
+    /* Make the collapsed ToC header render white on gray also when it's a link */
+    & h2 a,
+    & h2 a:is(:link, :focus, :hover),
+    & a.toplink,
+    & a.toplink:hover {
+      color: white;
+      background-color: #444;
+      text-decoration: none;
+    }
+    & a.toplink {
+      margin: 2px 0.5em 0;
+    }
+  }
+}
+
+/* TOC layout for wide screens */
+@media screen and (min-width: 930px) {
+  body {
+    padding-right: 360px;
+    padding-right: calc(min(180px + 20%, 500px));
+  }
+  #toc {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    right: calc(50vw - 480px);
+    width: 312px;
+    margin: 0;
+    padding: 0;
+    z-index: 1;
+    & h2 {
+      margin: 0;
+      padding: 0.25em 1em 1em 0;
+    }
+    & nav {
+      display: block;
+      height: calc(90vh - 84px);
+      bottom: 0;
+      padding: 0.5em 0 2em;
+      overflow: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+    }
+    & a.toplink {
+      margin: 8px 0.5em 0;
+    }
+  }
+  img { /* future proofing */
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* pagination */
+@media print {
+  body {
+    width: 100%;
+  }
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+  #n-copyright-notice {
+    border-bottom: none;
+  }
+  #toc {
+    page-break-before: always;
+    border-top: none;
+    padding-top: 0;
+  }
+  #n-introduction {
+    page-break-before: always;
+  }
+  figure, pre, .vcard {
+    page-break-inside: avoid;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+  :is(h2, h3, h4, h5, h6)+*, dd {
+    page-break-before: avoid;
+  }
+  pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 10pt;
+  }
+  table {
+    border: 1px solid #ddd;
+  }
+  td {
+    border-top: 1px solid #ddd;
+  }
+}
+
+@page :first {
+  padding-top: 0;
+  @top-left {
+    content: normal;
+    border: none;
+  }
+  @top-center {
+    content: normal;
+    border: none;
+  }
+  @top-right {
+    content: normal;
+    border: none;
+  }
+}
+
+@page {
+  size: A4;
+  margin-bottom: 45mm;
+  padding-top: 20px;
+}
+
+/* Dark mode. */
+@media (prefers-color-scheme: dark) {
+:root {
+  --background-color: #121212;
+  --text-color: #f0f0f0;
+  --title-color: #fff;
+  --link-color: #4da4f0;
+  --highlight-color: #282828;
+  --line-color: #444;
+  --pilcrow-weak: #444;
+  --pilcrow-strong: #666;
+  scrollbar-color: #777 #333;
+}
+}
+
+/* SVG Trick: a prefix match works because only black and white are allowed */
+svg {
+  & :is([stroke="black"], [stroke^="#000"]) {
+    stroke: var(--text-color);
+  }
+  & :is([stroke="white"], [stroke^="#fff"]) {
+    stroke: var(--background-color);
+  }
+  & :is([fill="black"], [fill^="#000"], :not([fill])) {
+    fill: var(--text-color);
+  }
+  & :is([fill="white"], [fill^="#fff"]) {
+    fill: var(--background-color);
+  }
+}
+</style>
+
+</head>
+<body class="xml2rfc">
+<table class="ears">
+<thead><tr>
+<td class="left">Internet-Draft</td>
+<td class="center">HTTP Tunnels Auth with Signatures</td>
+<td class="right">October 2026</td>
+</tr></thead>
+<tfoot><tr>
+<td class="left">Rosomakho</td>
+<td class="center">Expires 22 April 2027</td>
+<td class="right">[Page]</td>
+</tr></tfoot>
+</table>
+<div id="external-metadata" class="document-information"></div>
+<div id="internal-metadata" class="document-information">
+<dl id="identifiers">
+<dt class="label-workgroup">Workgroup:</dt>
+<dd class="workgroup">HTTP</dd>
+<dt class="label-internet-draft">Internet-Draft:</dt>
+<dd class="internet-draft">draft-rosomakho-httpbis-tunnels-signatures-latest</dd>
+<dt class="label-published">Published:</dt>
+<dd class="published">
+<time datetime="2026-10-19" class="published">19 October 2026</time>
+    </dd>
+<dt class="label-intended-status">Intended Status:</dt>
+<dd class="intended-status">Standards Track</dd>
+<dt class="label-expires">Expires:</dt>
+<dd class="expires"><time datetime="2027-04-22">22 April 2027</time></dd>
+<dt class="label-authors">Author:</dt>
+<dd class="authors">
+<div class="author">
+      <div class="author-name">Y. Rosomakho</div>
+<div class="org">Zscaler</div>
+</div>
+</dd>
+</dl>
+</div>
+<h1 id="title">Authenticating HTTP Tunnels with HTTP Message Signatures</h1>
+<section id="section-abstract">
+      <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
+<p id="section-abstract-1">This document specifies client authentication for HTTP tunnel establishment
+using HTTP Message Signatures. It covers the CONNECT method, extended CONNECT
+in HTTP/2 and HTTP/3, and HTTP/1.1 Upgrade. It defines signature coverage and
+replay protection using either a client-generated nonce or a server-provided
+nonce obtained through an Accept-Signature challenge.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+</section>
+<section class="note rfcEditorRemove" id="section-note.1">
+      <h2 id="name-about-this-document">
+<a href="#name-about-this-document" class="section-name selfRef">About This Document</a>
+      </h2>
+<p id="section-note.1-1">This note is to be removed before publishing as an RFC.<a href="#section-note.1-1" class="pilcrow">¶</a></p>
+<p id="section-note.1-2">
+        The latest revision of this draft can be found at <span><a href="https://yaroslavros.github.io/httpbis-connect-signatures/draft-rosomakho-httpbis-tunnels-signatures.html">https://yaroslavros.github.io/httpbis-connect-signatures/draft-rosomakho-httpbis-tunnels-signatures.html</a></span>.
+        Status information for this document may be found at <span><a href="https://datatracker.ietf.org/doc/draft-rosomakho-httpbis-tunnels-signatures/">https://datatracker.ietf.org/doc/draft-rosomakho-httpbis-tunnels-signatures/</a></span>.<a href="#section-note.1-2" class="pilcrow">¶</a></p>
+<p id="section-note.1-3">
+        Discussion of this document takes place on the
+        HTTP Working Group mailing list (<span><a href="mailto:ietf-http-wg@w3.org">mailto:ietf-http-wg@w3.org</a></span>),
+        which is archived at <span><a href="https://lists.w3.org/Archives/Public/ietf-http-wg/">https://lists.w3.org/Archives/Public/ietf-http-wg/</a></span>.<a href="#section-note.1-3" class="pilcrow">¶</a></p>
+<p id="section-note.1-4">Source for this draft and an issue tracker can be found at
+        <span><a href="https://github.com/yaroslavros/httpbis-connect-signatures">https://github.com/yaroslavros/httpbis-connect-signatures</a></span>.<a href="#section-note.1-4" class="pilcrow">¶</a></p>
+</section>
+<div id="status-of-memo">
+<section id="section-boilerplate.1">
+        <h2 id="name-status-of-this-memo">
+<a href="#name-status-of-this-memo" class="section-name selfRef">Status of This Memo</a>
+        </h2>
+<p id="section-boilerplate.1-1">
+        This Internet-Draft is submitted in full conformance with the
+        provisions of BCP 78 and BCP 79.<a href="#section-boilerplate.1-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-2">
+        Internet-Drafts are working documents of the Internet Engineering Task
+        Force (IETF). Note that other groups may also distribute working
+        documents as Internet-Drafts. The list of current Internet-Drafts is
+        at <span><a href="https://datatracker.ietf.org/drafts/current/">https://datatracker.ietf.org/drafts/current/</a></span>.<a href="#section-boilerplate.1-2" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-3">
+        Internet-Drafts are draft documents valid for a maximum of six months
+        and may be updated, replaced, or obsoleted by other documents at any
+        time. It is inappropriate to use Internet-Drafts as reference
+        material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-4">
+        This Internet-Draft will expire on 22 April 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="copyright">
+<section id="section-boilerplate.2">
+        <h2 id="name-copyright-notice">
+<a href="#name-copyright-notice" class="section-name selfRef">Copyright Notice</a>
+        </h2>
+<p id="section-boilerplate.2-1">
+            Copyright (c) 2026 IETF Trust and the persons identified as the
+            document authors. All rights reserved.<a href="#section-boilerplate.2-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.2-2">
+            This document is subject to BCP 78 and the IETF Trust's Legal
+            Provisions Relating to IETF Documents
+            (<span><a href="https://trustee.ietf.org/license-info">https://trustee.ietf.org/license-info</a></span>) in effect on the date of
+            publication of this document. Please review these documents
+            carefully, as they describe your rights and restrictions with
+            respect to this document. Code Components extracted from this
+            document must include Revised BSD License text as described in
+            Section 4.e of the Trust Legal Provisions and are provided without
+            warranty as described in the Revised BSD License.<a href="#section-boilerplate.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="toc">
+<section id="section-toc.1">
+        <a href="#" onclick="scroll(0,0)" class="toplink">▲</a><h2 id="name-table-of-contents">
+<a href="#name-table-of-contents" class="section-name selfRef">Table of Contents</a>
+        </h2>
+<nav class="toc"><ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1">
+            <p id="section-toc.1-1.1.1" class="keepWithNext"><a href="#section-1" class="auto internal xref">1</a>.  <a href="#name-introduction" class="internal xref">Introduction</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2">
+            <p id="section-toc.1-1.2.1" class="keepWithNext"><a href="#section-2" class="auto internal xref">2</a>.  <a href="#name-conventions-and-definitions" class="internal xref">Conventions and Definitions</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3">
+            <p id="section-toc.1-1.3.1" class="keepWithNext"><a href="#section-3" class="auto internal xref">3</a>.  <a href="#name-protocol-overview" class="internal xref">Protocol Overview</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4">
+            <p id="section-toc.1-1.4.1"><a href="#section-4" class="auto internal xref">4</a>.  <a href="#name-signature-requirements" class="internal xref">Signature Requirements</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.1">
+                <p id="section-toc.1-1.4.2.1.1"><a href="#section-4.1" class="auto internal xref">4.1</a>.  <a href="#name-covered-components" class="internal xref">Covered Components</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.2">
+                <p id="section-toc.1-1.4.2.2.1"><a href="#section-4.2" class="auto internal xref">4.2</a>.  <a href="#name-the-protocol-derived-compon" class="internal xref">The <code>@protocol</code> Derived Component</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.3">
+                <p id="section-toc.1-1.4.2.3.1"><a href="#section-4.3" class="auto internal xref">4.3</a>.  <a href="#name-signature-parameters" class="internal xref">Signature Parameters</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.4">
+                <p id="section-toc.1-1.4.2.4.1"><a href="#section-4.4" class="auto internal xref">4.4</a>.  <a href="#name-the-proxy-authority-signatu" class="internal xref">The <code>proxy-authority</code> Signature Parameter</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5">
+            <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-authentication-procedure" class="internal xref">Authentication Procedure</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.1">
+                <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-unsolicited-signatures" class="internal xref">Unsolicited Signatures</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2">
+                <p id="section-toc.1-1.5.2.2.1"><a href="#section-5.2" class="auto internal xref">5.2</a>.  <a href="#name-issuing-a-challenge" class="internal xref">Issuing a Challenge</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.3">
+                <p id="section-toc.1-1.5.2.3.1"><a href="#section-5.3" class="auto internal xref">5.3</a>.  <a href="#name-responding-to-a-challenge" class="internal xref">Responding to a Challenge</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.4">
+                <p id="section-toc.1-1.5.2.4.1"><a href="#section-5.4" class="auto internal xref">5.4</a>.  <a href="#name-validating-and-accepting-a-" class="internal xref">Validating and Accepting a Request</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.5">
+                <p id="section-toc.1-1.5.2.5.1"><a href="#section-5.5" class="auto internal xref">5.5</a>.  <a href="#name-error-handling" class="internal xref">Error Handling</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6">
+            <p id="section-toc.1-1.6.1"><a href="#section-6" class="auto internal xref">6</a>.  <a href="#name-examples" class="internal xref">Examples</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.1">
+                <p id="section-toc.1-1.6.2.1.1"><a href="#section-6.1" class="auto internal xref">6.1</a>.  <a href="#name-standard-connect-with-wimse" class="internal xref">Standard CONNECT with WIMSE Credentials</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.2">
+                <p id="section-toc.1-1.6.2.2.1"><a href="#section-6.2" class="auto internal xref">6.2</a>.  <a href="#name-extended-connect-for-udp-pr" class="internal xref">Extended CONNECT for UDP Proxying</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.3">
+                <p id="section-toc.1-1.6.2.3.1"><a href="#section-6.3" class="auto internal xref">6.3</a>.  <a href="#name-http-11-websocket-upgrade" class="internal xref">HTTP/1.1 WebSocket Upgrade</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7">
+            <p id="section-toc.1-1.7.1"><a href="#section-7" class="auto internal xref">7</a>.  <a href="#name-security-considerations" class="internal xref">Security Considerations</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8">
+            <p id="section-toc.1-1.8.1"><a href="#section-8" class="auto internal xref">8</a>.  <a href="#name-iana-considerations" class="internal xref">IANA Considerations</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9">
+            <p id="section-toc.1-1.9.1"><a href="#section-9" class="auto internal xref">9</a>.  <a href="#name-references" class="internal xref">References</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.1">
+                <p id="section-toc.1-1.9.2.1.1"><a href="#section-9.1" class="auto internal xref">9.1</a>.  <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.2">
+                <p id="section-toc.1-1.9.2.2.1"><a href="#section-9.2" class="auto internal xref">9.2</a>.  <a href="#name-informative-references" class="internal xref">Informative References</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10">
+            <p id="section-toc.1-1.10.1"><a href="#appendix-A" class="auto internal xref"></a><a href="#name-acknowledgments" class="internal xref">Acknowledgments</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11">
+            <p id="section-toc.1-1.11.1"><a href="#appendix-B" class="auto internal xref"></a><a href="#name-authors-address" class="internal xref">Author's Address</a></p>
+</li>
+        </ul>
+</nav>
+</section>
+</div>
+<div id="intro">
+<section id="section-1">
+      <h2 id="name-introduction">
+<a href="#section-1" class="section-number selfRef">1. </a><a href="#name-introduction" class="section-name selfRef">Introduction</a>
+      </h2>
+<p id="section-1-1">HTTP endpoints that establish tunnels often need to authenticate clients before
+granting access to network resources. HTTP Message Signatures <span>[<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>
+provide a flexible mechanism for authenticating selected components of an HTTP
+message, but their use requires a profile that specifies the components to
+cover and the verification requirements for a particular application.<a href="#section-1-1" class="pilcrow">¶</a></p>
+<p id="section-1-2">This document defines such a profile for tunnel establishment using the CONNECT
+method <span>[<a href="#HTTP" class="cite xref">HTTP</a>]</span>, extended CONNECT in HTTP/2 <span>[<a href="#HTTP2-EXTCONNECT" class="cite xref">HTTP2-EXTCONNECT</a>]</span> and HTTP/3
+<span>[<a href="#HTTP3-EXTCONNECT" class="cite xref">HTTP3-EXTCONNECT</a>]</span>, and HTTP/1.1 Upgrade <span><a href="https://rfc-editor.org/rfc/rfc9110#section-7.8" class="relref">Section 7.8</a> of [<a href="#HTTP" class="cite xref">HTTP</a>]</span>. These mechanisms support uses such
+as UDP proxying <span>[<a href="#CONNECT-UDP" class="cite xref">CONNECT-UDP</a>]</span> and WebSockets <span>[<a href="#WEBSOCKET" class="cite xref">WEBSOCKET</a>]</span>. The profile specifies
+signature coverage and replay protection for each tunnel establishment request.
+Clients can send unsolicited signatures with client-generated nonces; servers
+can accept these or require a fresh nonce through an Accept-Signature challenge.<a href="#section-1-2" class="pilcrow">¶</a></p>
+<p id="section-1-3">One motivating use case is authentication of software workloads at CONNECT
+proxies. WIMSE Workload-to-Workload Authentication with HTTP Signatures
+<span>[<a href="#WIMSE-HTTPSIG" class="cite xref">WIMSE-HTTPSIG</a>]</span> uses workload credentials and HTTP Message
+Signatures to authenticate workload requests. This document is intended to
+support that use case while remaining independent of WIMSE and applicable to
+other client authentication deployments.<a href="#section-1-3" class="pilcrow">¶</a></p>
+<p id="section-1-4">Authentication applies to the tunnel establishment request. Key identification,
+trust establishment, and authorization policy are outside the scope of this
+document. The mechanism does not require TLS or signed responses, and does not
+provide confidentiality or integrity protection for subsequent tunnel traffic.<a href="#section-1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="conventions-and-definitions">
+<section id="section-2">
+      <h2 id="name-conventions-and-definitions">
+<a href="#section-2" class="section-number selfRef">2. </a><a href="#name-conventions-and-definitions" class="section-name selfRef">Conventions and Definitions</a>
+      </h2>
+<p id="section-2-1">The key words "<span class="bcp14">MUST</span>", "<span class="bcp14">MUST NOT</span>", "<span class="bcp14">REQUIRED</span>", "<span class="bcp14">SHALL</span>", "<span class="bcp14">SHALL NOT</span>", "<span class="bcp14">SHOULD</span>", "<span class="bcp14">SHOULD NOT</span>", "<span class="bcp14">RECOMMENDED</span>", "<span class="bcp14">NOT RECOMMENDED</span>",
+"<span class="bcp14">MAY</span>", and "<span class="bcp14">OPTIONAL</span>" in this document are to be interpreted as
+described in BCP 14 <span>[<a href="#RFC2119" class="cite xref">RFC2119</a>]</span> <span>[<a href="#RFC8174" class="cite xref">RFC8174</a>]</span> when, and only when, they
+appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="overview">
+<section id="section-3">
+      <h2 id="name-protocol-overview">
+<a href="#section-3" class="section-number selfRef">3. </a><a href="#name-protocol-overview" class="section-name selfRef">Protocol Overview</a>
+      </h2>
+<p id="section-3-1">The client sends a tunnel establishment request, optionally signed using a
+fresh client-generated nonce. According to its policy, the server can accept
+an unsolicited signature or require a signature using a server-provided nonce.
+If authentication is needed, the server returns an Accept-Signature challenge
+with a fresh nonce and the required signature coverage. The client retries
+with the requested signature. Before accepting a request, the server verifies
+the signature, enforces nonce single use, and applies its authorization policy.<a href="#section-3-1" class="pilcrow">¶</a></p>
+<span id="name-authentication-exchange-whe"></span><div id="authentication-flow">
+<figure id="figure-1">
+        <div id="section-3-2.1">
+          <div class="alignLeft art-svg artwork" id="section-3-2.1.1">
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" height="288" width="416" viewBox="0 0 416 288" class="diagram" text-anchor="middle" font-family="monospace" font-size="13px" stroke-linecap="round">
+              <path d="M 24,48 L 24,272" fill="none" stroke="black"></path>
+              <path d="M 392,48 L 392,272" fill="none" stroke="black"></path>
+              <path d="M 32,80 L 384,80" fill="none" stroke="black"></path>
+              <path d="M 32,128 L 384,128" fill="none" stroke="black"></path>
+              <path d="M 32,176 L 384,176" fill="none" stroke="black"></path>
+              <path d="M 32,224 L 384,224" fill="none" stroke="black"></path>
+              <path d="M 32,270 L 384,270" fill="none" stroke="black"></path>
+              <path d="M 32,274 L 384,274" fill="none" stroke="black"></path>
+              <polygon class="arrowhead" points="392,272 380,266.4 380,277.6" fill="black" transform="rotate(0,384,272)"></polygon>
+              <polygon class="arrowhead" points="392,176 380,170.4 380,181.6" fill="black" transform="rotate(0,384,176)"></polygon>
+              <polygon class="arrowhead" points="392,80 380,74.4 380,85.6" fill="black" transform="rotate(0,384,80)"></polygon>
+              <polygon class="arrowhead" points="40,272 28,266.4 28,277.6" fill="black" transform="rotate(180,32,272)"></polygon>
+              <polygon class="arrowhead" points="40,224 28,218.4 28,229.6" fill="black" transform="rotate(180,32,224)"></polygon>
+              <polygon class="arrowhead" points="40,128 28,122.4 28,133.6" fill="black" transform="rotate(180,32,128)"></polygon>
+              <g class="text">
+                <text x="28" y="36">Client</text>
+                <text x="388" y="36">Server</text>
+                <text x="100" y="68">Unsigned</text>
+                <text x="148" y="68">or</text>
+                <text x="208" y="68">unsolicited</text>
+                <text x="284" y="68">signed</text>
+                <text x="344" y="68">request</text>
+                <text x="156" y="116">Accept-Signature</text>
+                <text x="264" y="116">challenge</text>
+                <text x="116" y="164">Signed</text>
+                <text x="176" y="164">request</text>
+                <text x="228" y="164">with</text>
+                <text x="276" y="164">server</text>
+                <text x="328" y="164">nonce</text>
+                <text x="132" y="212">Successful</text>
+                <text x="232" y="212">establishment</text>
+                <text x="324" y="212">response</text>
+                <text x="164" y="260">Tunnel</text>
+                <text x="224" y="260">traffic</text>
+              </g>
+            </svg><a href="#section-3-2.1.1" class="pilcrow">¶</a>
+</div>
+</div>
+<figcaption><a href="#figure-1" class="selfRef">Figure 1</a>:
+<a href="#name-authentication-exchange-whe" class="selfRef">Authentication exchange when a challenge is required</a>
+        </figcaption></figure>
+</div>
+<p id="section-3-3">If the server accepts an unsolicited signature, it sends the successful
+establishment response directly. Each establishment requires a fresh nonce.
+Retries can use a different connection; authentication of one request does not
+authenticate other requests on either connection.<a href="#section-3-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="signature-requirements">
+<section id="section-4">
+      <h2 id="name-signature-requirements">
+<a href="#section-4" class="section-number selfRef">4. </a><a href="#name-signature-requirements" class="section-name selfRef">Signature Requirements</a>
+      </h2>
+<p id="section-4-1">The server <span class="bcp14">MUST</span> enforce the signature requirements below, whether the client
+sends an unsolicited signature or responds to an Accept-Signature challenge.
+The client <span class="bcp14">MUST</span> generate the signature in accordance with <span>[<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>.
+The Signature-Input and Signature fields <span class="bcp14">MUST</span> be sent in the request header
+section so that authentication can complete before tunnel establishment. A
+signature accepted for authentication <span class="bcp14">MUST</span> satisfy all applicable requirements;
+coverage from separate signatures <span class="bcp14">MUST NOT</span> be combined to satisfy them.<a href="#section-4-1" class="pilcrow">¶</a></p>
+<div id="covered-components">
+<section id="section-4.1">
+        <h3 id="name-covered-components">
+<a href="#section-4.1" class="section-number selfRef">4.1. </a><a href="#name-covered-components" class="section-name selfRef">Covered Components</a>
+        </h3>
+<p id="section-4.1-1">The signature <span class="bcp14">MUST</span> cover the components listed below for the request form in
+use. The server <span class="bcp14">MUST</span> reject authentication if any required component is not
+covered, even if the signature is otherwise valid.<a href="#section-4.1-1" class="pilcrow">¶</a></p>
+<table class="center" id="table-1">
+          <caption><a href="#table-1" class="selfRef">Table 1</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">Request form</th>
+              <th class="text-left" rowspan="1" colspan="1">Required components</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Standard CONNECT</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>@method</code>, <code>@authority</code>
+</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Extended CONNECT</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>@method</code>, <code>@authority</code>, <code>@scheme</code>, <code>@path</code>, <code>@query</code>, <code>@protocol</code>
+</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">HTTP/1.1 Upgrade</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>@method</code>, <code>@authority</code>, <code>@scheme</code>, <code>@path</code>, <code>@query</code>, <code>upgrade</code>
+</td>
+            </tr>
+          </tbody>
+        </table>
+<p id="section-4.1-3">For standard CONNECT, <code>@authority</code> identifies the target host and port. Coverage
+of <code>@path</code> and <code>@query</code> is not required. For extended CONNECT and HTTP/1.1
+Upgrade, the URI components identify the requested resource, including any
+destination information conveyed in its path or query. The <code>@query</code> component
+<span class="bcp14">MUST</span> be covered even when no query is present, using the value defined in
+<span><a href="https://rfc-editor.org/rfc/rfc9421#section-2.2.7" class="relref">Section 2.2.7</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>.<a href="#section-4.1-3" class="pilcrow">¶</a></p>
+<p id="section-4.1-4">The server <span class="bcp14">MUST</span> require coverage of any additional request fields on which it
+relies to determine client identity, the tunnel destination, or permissions for
+the requested tunnel. When issuing a challenge, it <span class="bcp14">MUST</span> include all required
+components in Accept-Signature.<a href="#section-4.1-4" class="pilcrow">¶</a></p>
+<p id="section-4.1-5">Clients <span class="bcp14">MAY</span> cover components beyond these requirements. When responding to a
+challenge, components not requested by the server can be covered by a separate
+signature, as described in <span><a href="https://rfc-editor.org/rfc/rfc9421#section-5.2" class="relref">Section 5.2</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>.<a href="#section-4.1-5" class="pilcrow">¶</a></p>
+<p id="section-4.1-6">The <code>upgrade</code> component covers the Upgrade field using the field canonicalization
+rules in <span><a href="https://rfc-editor.org/rfc/rfc9421#section-2.1" class="relref">Section 2.1</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>.<a href="#section-4.1-6" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="protocol-component">
+<section id="section-4.2">
+        <h3 id="name-the-protocol-derived-compon">
+<a href="#section-4.2" class="section-number selfRef">4.2. </a><a href="#name-the-protocol-derived-compon" class="section-name selfRef">The <code>@protocol</code> Derived Component</a>
+        </h3>
+<p id="section-4.2-1">The <code>@protocol</code> derived component identifies the protocol requested by an
+extended CONNECT request. Its value is the value of the <code>:protocol</code>
+pseudo-header field defined in <span><a href="https://rfc-editor.org/rfc/rfc8441#section-4" class="relref">Section 4</a> of [<a href="#HTTP2-EXTCONNECT" class="cite xref">HTTP2-EXTCONNECT</a>]</span> and used in
+HTTP/3 by <span>[<a href="#HTTP3-EXTCONNECT" class="cite xref">HTTP3-EXTCONNECT</a>]</span>, without case conversion or other normalization.
+For example, a request containing <code>:protocol</code> with the value <code>connect-udp</code>
+produces the following signature base line:<a href="#section-4.2-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-4.2-2">
+<pre>
+"@protocol": connect-udp
+</pre><a href="#section-4.2-2" class="pilcrow">¶</a>
+</div>
+<p id="section-4.2-3">This component is derived from a request. It can also be referenced in a
+response signature using the <code>req</code> parameter as defined in
+<span><a href="https://rfc-editor.org/rfc/rfc9421#section-2.4" class="relref">Section 2.4</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>. If the request is not an extended CONNECT request
+with a valid <code>:protocol</code> pseudo-header field, the component cannot be derived
+and signature base generation <span class="bcp14">MUST</span> fail. In particular, <code>@protocol</code> is not
+derived from the HTTP/1.1 Upgrade field.<a href="#section-4.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="signature-parameters">
+<section id="section-4.3">
+        <h3 id="name-signature-parameters">
+<a href="#section-4.3" class="section-number selfRef">4.3. </a><a href="#name-signature-parameters" class="section-name selfRef">Signature Parameters</a>
+        </h3>
+<p id="section-4.3-1">The signature <span class="bcp14">MUST</span> include the following parameters defined in
+<span><a href="https://rfc-editor.org/rfc/rfc9421#section-2.3" class="relref">Section 2.3</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>:<a href="#section-4.3-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.3-2.1">
+            <p id="section-4.3-2.1.1"><code>nonce</code>: a fresh client-generated value for an unsolicited signature, or the
+exact value supplied by the server when responding to an Accept-Signature
+challenge. The client <span class="bcp14">MUST NOT</span> substitute its own value in a challenge response.<a href="#section-4.3-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.3-2.2">
+            <p id="section-4.3-2.2.1"><code>created</code>: the time at which the client generated the signature.<a href="#section-4.3-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.3-2.3">
+            <p id="section-4.3-2.3.1"><code>expires</code>: the signature expiration time, which <span class="bcp14">MUST</span> be later than <code>created</code>.<a href="#section-4.3-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-4.3-3">Client-generated nonces <span class="bcp14">MUST</span> be unpredictable and <span class="bcp14">MUST NOT</span> be reused with the
+same signing key. The server <span class="bcp14">MUST</span> enforce a maximum signature lifetime
+(<code>expires</code> minus <code>created</code>) and <span class="bcp14">SHOULD</span> keep it short, on the order of minutes.
+It <span class="bcp14">MUST</span> enforce the signature validity period and nonce single use. For a
+challenge response, it <span class="bcp14">MUST</span> also enforce the challenge lifetime; signature
+expiration does not extend that lifetime. These checks apply when
+authenticating the establishment request, not to the resulting tunnel's lifetime.<a href="#section-4.3-3" class="pilcrow">¶</a></p>
+<p id="section-4.3-4">Additional parameters can be required by the challenge or another applicable
+profile. This document does not mandate <code>keyid</code>, <code>alg</code>, or a particular <code>tag</code>
+value; their use follows <span>[<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span> and the applicable deployment or profile.<a href="#section-4.3-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="proxy-authority">
+<section id="section-4.4">
+        <h3 id="name-the-proxy-authority-signatu">
+<a href="#section-4.4" class="section-number selfRef">4.4. </a><a href="#name-the-proxy-authority-signatu" class="section-name selfRef">The <code>proxy-authority</code> Signature Parameter</a>
+        </h3>
+<p id="section-4.4-1">The <code>proxy-authority</code> signature metadata parameter identifies the intended
+proxy. It <span class="bcp14">MUST</span> be included in signatures authenticating standard CONNECT,
+whether unsolicited or challenged, and <span class="bcp14">MUST NOT</span> be used for extended CONNECT
+or HTTP/1.1 Upgrade. In Signature-Input, its value is a String containing the
+proxy hostname or IP address followed by a colon and an explicit port. It is
+protected by the signature through <code>@signature-params</code> as defined in
+<span><a href="https://rfc-editor.org/rfc/rfc9421#section-2.3" class="relref">Section 2.3</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>.<a href="#section-4.4-1" class="pilcrow">¶</a></p>
+<p id="section-4.4-2">The client <span class="bcp14">MUST</span> derive the value from its proxy configuration, retaining the
+configured hostname rather than substituting a DNS-resolved address. The value
+<span class="bcp14">MUST</span> be normalized as follows:<a href="#section-4.4-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-4.4-3.1">
+            <p id="section-4.4-3.1.1">Hostnames are lowercase ASCII, with internationalized labels represented as
+A-labels <span>[<a href="#IDNA" class="cite xref">IDNA</a>]</span> and any final dot omitted.<a href="#section-4.4-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.4-3.2">
+            <p id="section-4.4-3.2.1">IPv4 addresses use four decimal octets without leading zeros. IPv6 addresses
+use the hexadecimal representation specified in Section 4 of
+<span>[<a href="#IPV6-TEXT" class="cite xref">IPV6-TEXT</a>]</span>, enclosed in square brackets. IPv6 zone identifiers
+are not permitted.<a href="#section-4.4-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.4-3.3">
+            <p id="section-4.4-3.3.1">The port is a decimal integer from 1 through 65535 without leading zeros.
+It <span class="bcp14">MUST</span> be included even when it is the default port for the configured proxy
+scheme. For example, <code>https://proxy.example</code> produces <code>proxy.example:443</code>.<a href="#section-4.4-3.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-4.4-4">The value <span class="bcp14">MUST NOT</span> contain a scheme, user information, path, query, or fragment.
+For example, <code>proxy.example:8080</code> and <code>[2001:db8::1]:443</code> are valid values.
+The proxy <span class="bcp14">MUST</span> reject authentication unless the value is in this normalized
+form and exactly matches one of its configured proxy identities. An identity
+<span class="bcp14">MUST NOT</span> be accepted solely because it appears in the request.<a href="#section-4.4-4" class="pilcrow">¶</a></p>
+<p id="section-4.4-5">An Accept-Signature challenge for standard CONNECT <span class="bcp14">MUST</span> include
+<code>proxy-authority</code> in its Boolean true form (<code>;proxy-authority</code>, equivalent to
+<code>;proxy-authority=?1</code>). This requests inclusion of the parameter without
+specifying a proxy identity. The client <span class="bcp14">MUST</span> supply the normalized String
+value derived from its proxy configuration in Signature-Input. The proxy
+checks that value against its configured identities as described above.<a href="#section-4.4-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="authentication-procedure">
+<section id="section-5">
+      <h2 id="name-authentication-procedure">
+<a href="#section-5" class="section-number selfRef">5. </a><a href="#name-authentication-procedure" class="section-name selfRef">Authentication Procedure</a>
+      </h2>
+<div id="unsolicited-signatures">
+<section id="section-5.1">
+        <h3 id="name-unsolicited-signatures">
+<a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-unsolicited-signatures" class="section-name selfRef">Unsolicited Signatures</a>
+        </h3>
+<p id="section-5.1-1">A client <span class="bcp14">MAY</span> sign its initial request using a fresh client-generated nonce and
+the requirements in <a href="#signature-requirements" class="auto internal xref">Section 4</a>. Signature selection follows
+the applicable profile or server policy; a particular signature label is not
+required. The server <span class="bcp14">MAY</span> accept the signature if its policy permits unsolicited
+authentication and all checks in <a href="#validating-request" class="auto internal xref">Section 5.4</a> succeed. Otherwise, it
+can require a server-provided nonce as described below.<a href="#section-5.1-1" class="pilcrow">¶</a></p>
+<p id="section-5.1-2">Servers that accept both kinds of nonce <span class="bcp14">MUST</span> distinguish challenge responses
+from unsolicited signatures, for example through a recognizable server nonce
+format or retained challenge metadata. An expired or consumed server nonce
+<span class="bcp14">MUST NOT</span> be accepted as a client-generated nonce. If the server cannot
+safely make this distinction, it <span class="bcp14">MUST</span> require a fresh challenge. A policy that
+requires a server-provided nonce <span class="bcp14">MUST NOT</span> fall back to unsolicited authentication.<a href="#section-5.1-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="issuing-challenge">
+<section id="section-5.2">
+        <h3 id="name-issuing-a-challenge">
+<a href="#section-5.2" class="section-number selfRef">5.2. </a><a href="#name-issuing-a-challenge" class="section-name selfRef">Issuing a Challenge</a>
+        </h3>
+<p id="section-5.2-1">For an otherwise acceptable tunnel establishment request without a signature,
+or with an unsolicited signature when policy requires a server-provided nonce,
+the server <span class="bcp14">MUST</span> return 403 (Forbidden) with an Accept-Signature field. The field
+<span class="bcp14">MUST</span> contain one dictionary member specifying the signature required by this
+mechanism, using the syntax in <span><a href="https://rfc-editor.org/rfc/rfc9421#section-5.1" class="relref">Section 5.1</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>. It <span class="bcp14">MUST</span> specify the
+coverage required by <a href="#signature-requirements" class="auto internal xref">Section 4</a>, a fresh <code>nonce</code> value, and the
+<code>created</code> and <code>expires</code> parameters in their Boolean true form. The response
+<span class="bcp14">MUST</span> include <code>Cache-Control: no-store</code>. For standard CONNECT, the challenge
+<span class="bcp14">MUST</span> also include <code>proxy-authority</code> as specified in <a href="#proxy-authority" class="auto internal xref">Section 4.4</a>.<a href="#section-5.2-1" class="pilcrow">¶</a></p>
+<p id="section-5.2-2">The nonce <span class="bcp14">MUST</span> be unpredictable and unique among challenges that the server
+can still accept. The server <span class="bcp14">MUST</span> assign each challenge a bounded lifetime and
+<span class="bcp14">SHOULD</span> keep that lifetime short, on the order of minutes.<a href="#section-5.2-2" class="pilcrow">¶</a></p>
+<p id="section-5.2-3">The server <span class="bcp14">MUST</span> associate the nonce with the requested signature label,
+coverage, parameters, expiration, and the request's method, target, and tunnel
+protocol. This association <span class="bcp14">MUST</span> be protected against modification by the
+client. A challenge <span class="bcp14">MUST NOT</span> be bound to the connection on which it was issued.<a href="#section-5.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="responding-challenge">
+<section id="section-5.3">
+        <h3 id="name-responding-to-a-challenge">
+<a href="#section-5.3" class="section-number selfRef">5.3. </a><a href="#name-responding-to-a-challenge" class="section-name selfRef">Responding to a Challenge</a>
+        </h3>
+<p id="section-5.3-1">Clients <span class="bcp14">MUST</span> support responding to Accept-Signature challenges.<a href="#section-5.3-1" class="pilcrow">¶</a></p>
+<p id="section-5.3-2">On receiving a 403 response with Accept-Signature, the client <span class="bcp14">MUST</span> check that
+the challenge satisfies <a href="#signature-requirements" class="auto internal xref">Section 4</a> and is compatible with its
+signing policy. If it cannot satisfy the challenge, it <span class="bcp14">MUST</span> fail the
+establishment attempt rather than retry with weaker coverage or parameters.<a href="#section-5.3-2" class="pilcrow">¶</a></p>
+<p id="section-5.3-3">The client retries the establishment request with the same method, target, and
+tunnel protocol. It <span class="bcp14">MUST</span> generate the requested signature following
+<span><a href="https://rfc-editor.org/rfc/rfc9421#section-5.2" class="relref">Section 5.2</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>, using the same signature label and exact set of
+component identifiers, including their parameters, as the challenge. It <span class="bcp14">MUST</span>
+include the supplied nonce and generate <code>created</code> and <code>expires</code> values as
+specified in <a href="#signature-parameters" class="auto internal xref">Section 4.3</a>. The retry <span class="bcp14">MAY</span> use the same connection or
+a different connection.<a href="#section-5.3-3" class="pilcrow">¶</a></p>
+<p id="section-5.3-4">The client <span class="bcp14">MUST NOT</span> reuse a signed request for another establishment attempt.
+If a retry is needed after a signed request fails or its outcome is unknown,
+the client <span class="bcp14">MUST</span> generate a fresh client nonce or obtain a fresh challenge, as
+permitted by server policy. A client challenged to use a server nonce <span class="bcp14">MUST</span>
+respond to that challenge or fail the attempt. Clients <span class="bcp14">MUST</span> limit automatic
+retries to avoid an unbounded challenge-response loop.<a href="#section-5.3-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="validating-request">
+<section id="section-5.4">
+        <h3 id="name-validating-and-accepting-a-">
+<a href="#section-5.4" class="section-number selfRef">5.4. </a><a href="#name-validating-and-accepting-a-" class="section-name selfRef">Validating and Accepting a Request</a>
+        </h3>
+<p id="section-5.4-1">Before accepting a signed request, the server <span class="bcp14">MUST</span>:<a href="#section-5.4-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-5.4-2">
+<li id="section-5.4-2.1">
+            <p id="section-5.4-2.1.1">Select the signature under the applicable profile or policy. For a challenge
+response, identify the issued challenge using the nonce, select the requested
+signature label, and verify that the challenge is unexpired and applies to
+the request's method, target, and tunnel protocol. For an unsolicited
+signature, verify that server policy permits its use.<a href="#section-5.4-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-5.4-2.2">
+            <p id="section-5.4-2.2.1">Check the signature coverage and parameters against <a href="#signature-requirements" class="auto internal xref">Section 4</a>
+and any issued challenge, and verify the signature according to
+<span><a href="https://rfc-editor.org/rfc/rfc9421#section-3.2" class="relref">Section 3.2</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>. For standard CONNECT, this includes checking
+<code>proxy-authority</code> against the proxy's configured identities.<a href="#section-5.4-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-5.4-2.3">
+            <p id="section-5.4-2.3.1">Check that the signature lifetime does not exceed the server's maximum and
+that the current time falls within the signature validity period. The server
+<span class="bcp14">MAY</span> allow a small, bounded tolerance for clock skew.<a href="#section-5.4-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-5.4-2.4">
+            <p id="section-5.4-2.4.1">Atomically check that the nonce is unused and record its consumption. For a
+client-generated nonce, the replay record <span class="bcp14">MUST</span> be scoped to the verified
+signing key and nonce value, independent of signature labels, key identifier
+aliases, or request targets. For a server-provided nonce, the challenge <span class="bcp14">MUST</span>
+be consumed at most once. If already consumed, authentication <span class="bcp14">MUST</span> fail.<a href="#section-5.4-2.4.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+<p id="section-5.4-3">Single-use enforcement <span class="bcp14">MUST</span> apply across all connections and server instances
+that can accept the signature. Client nonce records <span class="bcp14">MUST</span> be retained through
+signature expiration, including any clock skew tolerance. Server nonce
+consumption <span class="bcp14">MUST</span> be recorded for the entire remaining challenge lifetime.
+If single-use enforcement cannot be guaranteed, the server <span class="bcp14">MUST NOT</span> accept
+the request. An invalid signature <span class="bcp14">MUST NOT</span> create a replay record or consume
+a challenge. Once consumed, a nonce <span class="bcp14">MUST NOT</span> become usable again during its
+acceptance window, including when authorization or subsequent tunnel
+establishment fails.<a href="#section-5.4-3" class="pilcrow">¶</a></p>
+<p id="section-5.4-4">After authentication, the server applies its authorization policy. It <span class="bcp14">MUST NOT</span>
+open the requested upstream connection, forward tunnel traffic, or send a
+successful establishment response before authentication and authorization
+succeed. Successful establishment uses the response defined by the applicable
+tunnel protocol: a 2xx response for CONNECT or a 101 (Switching Protocols)
+response for HTTP/1.1 Upgrade. Authentication applies only to this request.<a href="#section-5.4-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="authentication-errors">
+<section id="section-5.5">
+        <h3 id="name-error-handling">
+<a href="#section-5.5" class="section-number selfRef">5.5. </a><a href="#name-error-handling" class="section-name selfRef">Error Handling</a>
+        </h3>
+<p id="section-5.5-1">Malformed authentication fields <span class="bcp14">SHOULD</span> result in 400 (Bad Request). For
+well-formed requests, failed authentication, including an invalid signature,
+a replayed client nonce, or an expired or consumed server nonce, <span class="bcp14">MUST</span> result
+in 403 (Forbidden). The server <span class="bcp14">MAY</span> include a fresh Accept-Signature
+challenge if another attempt could succeed, and <span class="bcp14">MUST</span> do so in the cases
+specified in <a href="#issuing-challenge" class="auto internal xref">Section 5.2</a>.<a href="#section-5.5-1" class="pilcrow">¶</a></p>
+<p id="section-5.5-2">If authentication succeeds but authorization fails, the server <span class="bcp14">MUST</span> return 403
+without an Accept-Signature challenge. A client receiving a 403 response without
+a challenge <span class="bcp14">MUST NOT</span> automatically retry using this procedure. Other failures,
+such as an unreachable tunnel destination, use the error handling of the
+applicable tunnel protocol.<a href="#section-5.5-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="examples">
+<section id="section-6">
+      <h2 id="name-examples">
+<a href="#section-6" class="section-number selfRef">6. </a><a href="#name-examples" class="section-name selfRef">Examples</a>
+      </h2>
+<p id="section-6-1">These examples show successful exchanges at 2026-10-06T00:00:00Z. All
+request signatures use Ed25519 and expire 60 seconds later; the server
+accepts signatures and any challenges during that interval. Keys and
+nonce values are for illustration only and are not suitable for
+deployment. Long lines are folded using <span>[<a href="#FOLDING" class="cite xref">FOLDING</a>]</span>; folding is
+not part of the messages.<a href="#section-6-1" class="pilcrow">¶</a></p>
+<p id="section-6-2">The client public key used in all three examples is:<a href="#section-6-2" class="pilcrow">¶</a></p>
+<span id="name-example-client-public-key"></span><div id="example-client-key">
+<figure id="figure-2">
+        <div class="lang-json sourcecode" id="section-6-3.1">
+<pre>
+{
+  "kty": "OKP",
+  "crv": "Ed25519",
+  "x": "LJIz3J11mSpiRKfUwM8TReBzc4OEGvurSYNJ19K4AM8",
+  "alg": "Ed25519",
+  "kid": "client-key"
+}
+</pre>
+</div>
+<figcaption><a href="#figure-2" class="selfRef">Figure 2</a>:
+<a href="#name-example-client-public-key" class="selfRef">Example client public key</a>
+        </figcaption></figure>
+</div>
+<div id="example-standard-connect">
+<section id="section-6.1">
+        <h3 id="name-standard-connect-with-wimse">
+<a href="#section-6.1" class="section-number selfRef">6.1. </a><a href="#name-standard-connect-with-wimse" class="section-name selfRef">Standard CONNECT with WIMSE Credentials</a>
+        </h3>
+<p id="section-6.1-1">A workload connects to the proxy at <code>https://proxy.example</code> and requests
+a TCP tunnel to <code>service.example:443</code>. The proxy uses WIMSE credentials
+<span>[<a href="#WIMSE-HTTPSIG" class="cite xref">WIMSE-HTTPSIG</a>]</span> and trusts the following issuer public key for the
+<code>example.com</code> trust domain:<a href="#section-6.1-1" class="pilcrow">¶</a></p>
+<span id="name-example-wit-issuer-public-k"></span><div id="example-issuer-key">
+<figure id="figure-3">
+          <div class="lang-json sourcecode" id="section-6.1-2.1">
+<pre>
+{
+  "kty": "OKP",
+  "crv": "Ed25519",
+  "x": "uJqIC9mMU6Dl3roQZqy6CIrseaodOv_hjPGhel1Q3mk",
+  "alg": "Ed25519",
+  "kid": "issuer-key"
+}
+</pre>
+</div>
+<figcaption><a href="#figure-3" class="selfRef">Figure 3</a>:
+<a href="#name-example-wit-issuer-public-k" class="selfRef">Example WIT issuer public key</a>
+          </figcaption></figure>
+</div>
+<p id="section-6.1-3">The Workload Identity Token (WIT) <span>[<a href="#WIMSE-CREDS" class="cite xref">WIMSE-CREDS</a>]</span>
+in the signed request identifies <code>wimse://example.com/workload-a</code>, is
+issued by <code>https://issuer.example</code>, and binds the client public key above
+in <code>cnf.jwk</code>. Its <code>iat</code> is 1791244740 and its <code>exp</code> is 1791248400. The
+token's protected header is:<a href="#section-6.1-3" class="pilcrow">¶</a></p>
+<span id="name-wit-protected-header"></span><div id="example-wit-header">
+<figure id="figure-4">
+          <div class="lang-json sourcecode" id="section-6.1-4.1">
+<pre>
+{"alg":"Ed25519","typ":"wit+jwt","kid":"issuer-key"}
+</pre>
+</div>
+<figcaption><a href="#figure-4" class="selfRef">Figure 4</a>:
+<a href="#name-wit-protected-header" class="selfRef">WIT protected header</a>
+          </figcaption></figure>
+</div>
+<p id="section-6.1-5">Editorial note: this example anticipates changes to WIMSE omitting
+<code>@path</code> and <code>@query</code> for standard CONNECT. It is not fully conformant to
+draft-ietf-wimse-http-signature-07.<a href="#section-6.1-5" class="pilcrow">¶</a></p>
+<p id="section-6.1-6">The proxy permits unsolicited signatures. The client sends its WIT and
+signature with a fresh client-generated nonce. The <code>proxy-authority</code>
+value is <code>proxy.example:443</code>, derived from the configured proxy URI.
+The <code>wimse-aud</code> value is the proxy identity configured for this WIMSE
+deployment. Both identify the intended proxy and are checked
+independently. The signing key and algorithm come from the WIT, so
+<code>keyid</code> and <code>alg</code> are absent from Signature-Input. Response signing is
+not requested.<a href="#section-6.1-6" class="pilcrow">¶</a></p>
+<span id="name-signed-connect-request"></span><div id="example-connect-signed">
+<figure id="figure-5">
+          <div class="alignLeft art-text artwork" id="section-6.1-7.1">
+<pre>
+NOTE: '\' line wrapping per RFC 8792
+
+CONNECT service.example:443 HTTP/1.1
+Host: service.example:443
+Workload-Identity-Token: eyJhbGciOiJFZDI1NTE5IiwidHlwIjoid2l0K2p3dCIsIm\
+  tpZCI6Imlzc3Vlci1rZXkifQ.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlIiwi\
+  c3ViIjoid2ltc2U6Ly9leGFtcGxlLmNvbS93b3JrbG9hZC1hIiwiaWF0IjoxNzkxMjQ0N\
+  zQwLCJleHAiOjE3OTEyNDg0MDAsImNuZiI6eyJqd2siOnsia3R5IjoiT0tQIiwiY3J2Ij\
+  oiRWQyNTUxOSIsIngiOiJMSkl6M0oxMW1TcGlSS2ZVd004VFJlQnpjNE9FR3Z1clNZTko\
+  xOUs0QU04IiwiYWxnIjoiRWQyNTUxOSIsImtpZCI6ImNsaWVudC1rZXkifX19.9G8ShrC\
+  Bs3m9kJDvRo54mRs-Cyczot3oPeX0u5qUNyQ5Q5b7A3I0G-24ZGOGZBmp97AAoCzdYvr6\
+  g1A8gIK6Ag
+Signature-Input: sig1=("@method" "@authority" \
+  "workload-identity-token");created=1791244800;expires=1791244860;\
+  nonce="sGcptixoRlVhKrE6YIc1oqzQP3vBoc64";\
+  tag="wimse-workload-to-workload";proxy-authority="proxy.example:443";\
+  wimse-aud="https://proxy.example"
+Signature: sig1=:5qi1gPTvGrDF4B5R1OK5L+4VmD85WCIPlM+bHm7UUmAEehf4Wv/TRp\
+  0a5KNeDKuQUQfwQ4n40519anF+8skaDQ==:
+</pre>
+</div>
+<figcaption><a href="#figure-5" class="selfRef">Figure 5</a>:
+<a href="#name-signed-connect-request" class="selfRef">Signed CONNECT request</a>
+          </figcaption></figure>
+</div>
+<p id="section-6.1-8">The proxy validates the WIT, audience, proxy authority, and request
+signature, atomically records the client nonce under the verified
+signing key, and authorizes the tunnel. It responds without an
+Accept-Signature exchange:<a href="#section-6.1-8" class="pilcrow">¶</a></p>
+<span id="name-connect-success"></span><div id="example-connect-success">
+<figure id="figure-6">
+          <div class="alignLeft art-text artwork" id="section-6.1-9.1">
+<pre>
+HTTP/1.1 200 Connection Established
+</pre>
+</div>
+<figcaption><a href="#figure-6" class="selfRef">Figure 6</a>:
+<a href="#name-connect-success" class="selfRef">CONNECT success</a>
+          </figcaption></figure>
+</div>
+</section>
+</div>
+<div id="example-extended-connect">
+<section id="section-6.2">
+        <h3 id="name-extended-connect-for-udp-pr">
+<a href="#section-6.2" class="section-number selfRef">6.2. </a><a href="#name-extended-connect-for-udp-pr" class="section-name selfRef">Extended CONNECT for UDP Proxying</a>
+        </h3>
+<p id="section-6.2-1">This example uses CONNECT-UDP <span>[<a href="#CONNECT-UDP" class="cite xref">CONNECT-UDP</a>]</span> over HTTP/2. The same
+fields and signature apply to HTTP/3. Pseudo-header fields and header
+fields are shown in decoded form; connection setup and protocol settings
+negotiation are omitted. The proxy maps <code>client-key</code> to the client
+public key in <a href="#example-client-key" class="auto internal xref">Figure 2</a> through local configuration and
+requires a server-provided nonce.<a href="#section-6.2-1" class="pilcrow">¶</a></p>
+<p id="section-6.2-2">The client requests a UDP tunnel to <code>192.0.2.1:443</code>:<a href="#section-6.2-2" class="pilcrow">¶</a></p>
+<span id="name-initial-connect-udp-request"></span><div id="example-udp-initial">
+<figure id="figure-7">
+          <div class="alignLeft art-text artwork" id="section-6.2-3.1">
+<pre>
+:method: CONNECT
+:protocol: connect-udp
+:scheme: https
+:authority: proxy.example
+:path: /.well-known/masque/udp/192.0.2.1/443/
+capsule-protocol: ?1
+</pre>
+</div>
+<figcaption><a href="#figure-7" class="selfRef">Figure 7</a>:
+<a href="#name-initial-connect-udp-request" class="selfRef">Initial CONNECT-UDP request</a>
+          </figcaption></figure>
+</div>
+<p id="section-6.2-4">The proxy requests a signature:<a href="#section-6.2-4" class="pilcrow">¶</a></p>
+<span id="name-connect-udp-challenge"></span><div id="example-udp-challenge">
+<figure id="figure-8">
+          <div class="alignLeft art-text artwork" id="section-6.2-5.1">
+<pre>
+NOTE: '\' line wrapping per RFC 8792
+
+:status: 403
+cache-control: no-store
+content-length: 0
+accept-signature: sig1=("@method" "@authority" "@scheme" "@path" \
+  "@query" "@protocol");nonce="xAiQNf5KcJLEmgyoVmuNckWgvuNdvmCq";\
+  created;expires;keyid="client-key";alg="ed25519"
+</pre>
+</div>
+<figcaption><a href="#figure-8" class="selfRef">Figure 8</a>:
+<a href="#name-connect-udp-challenge" class="selfRef">CONNECT-UDP challenge</a>
+          </figcaption></figure>
+</div>
+<p id="section-6.2-6">The client sends the signed request:<a href="#section-6.2-6" class="pilcrow">¶</a></p>
+<span id="name-signed-connect-udp-request"></span><div id="example-udp-signed">
+<figure id="figure-9">
+          <div class="alignLeft art-text artwork" id="section-6.2-7.1">
+<pre>
+NOTE: '\' line wrapping per RFC 8792
+
+:method: CONNECT
+:protocol: connect-udp
+:scheme: https
+:authority: proxy.example
+:path: /.well-known/masque/udp/192.0.2.1/443/
+capsule-protocol: ?1
+signature-input: sig1=("@method" "@authority" "@scheme" "@path" \
+  "@query" "@protocol");created=1791244800;expires=1791244860;\
+  nonce="xAiQNf5KcJLEmgyoVmuNckWgvuNdvmCq";keyid="client-key";\
+  alg="ed25519"
+signature: sig1=:FbyVrcdlNx9SrAKNJBgDhoEHxrx22Lf/moVSW5F23kqv8hwbc9u1xc\
+  xyh5qRopJlsPpCWgRFvonN/olXL4z5Cw==:
+</pre>
+</div>
+<figcaption><a href="#figure-9" class="selfRef">Figure 9</a>:
+<a href="#name-signed-connect-udp-request" class="selfRef">Signed CONNECT-UDP request</a>
+          </figcaption></figure>
+</div>
+<p id="section-6.2-8">After validation and authorization, the proxy accepts the tunnel:<a href="#section-6.2-8" class="pilcrow">¶</a></p>
+<span id="name-connect-udp-success"></span><div id="example-udp-success">
+<figure id="figure-10">
+          <div class="alignLeft art-text artwork" id="section-6.2-9.1">
+<pre>
+:status: 200
+capsule-protocol: ?1
+</pre>
+</div>
+<figcaption><a href="#figure-10" class="selfRef">Figure 10</a>:
+<a href="#name-connect-udp-success" class="selfRef">CONNECT-UDP success</a>
+          </figcaption></figure>
+</div>
+</section>
+</div>
+<div id="example-websocket">
+<section id="section-6.3">
+        <h3 id="name-http-11-websocket-upgrade">
+<a href="#section-6.3" class="section-number selfRef">6.3. </a><a href="#name-http-11-websocket-upgrade" class="section-name selfRef">HTTP/1.1 WebSocket Upgrade</a>
+        </h3>
+<p id="section-6.3-1">A client opens a WebSocket at <code>ws://chat.example/socket</code>. The server
+maps <code>client-key</code> to the public key in <a href="#example-client-key" class="auto internal xref">Figure 2</a>. The
+handshake follows <span>[<a href="#WEBSOCKET" class="cite xref">WEBSOCKET</a>]</span> and additionally covers its key and
+version fields. This example assumes a client capable of setting the
+signature fields. The server requires a server-provided nonce even for
+a valid unsolicited signature.<a href="#section-6.3-1" class="pilcrow">¶</a></p>
+<p id="section-6.3-2">The client initially sends an unsolicited signature with its own nonce:<a href="#section-6.3-2" class="pilcrow">¶</a></p>
+<span id="name-unsolicited-signed-websocke"></span><div id="example-ws-initial">
+<figure id="figure-11">
+          <div class="alignLeft art-text artwork" id="section-6.3-3.1">
+<pre>
+NOTE: '\' line wrapping per RFC 8792
+
+GET /socket HTTP/1.1
+Host: chat.example
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dHVubmVsLWV4YW1wbGUtMQ==
+Sec-WebSocket-Version: 13
+Signature-Input: sig1=("@method" "@authority" "@scheme" "@path" \
+  "@query" "upgrade" "sec-websocket-key" "sec-websocket-version");\
+  created=1791244800;expires=1791244860;\
+  nonce="tldju9XaHCa61VGB2yTC8vWw9dsm8oDs";keyid="client-key";\
+  alg="ed25519"
+Signature: sig1=:+TiZgHUrj8II+HLQAlEOfzR67zpxu1iop6i6oLlGlnWzehK0WEgTPn\
+  juUHlI7baWRnjPWljilteYo/rUU5/BAg==:
+</pre>
+</div>
+<figcaption><a href="#figure-11" class="selfRef">Figure 11</a>:
+<a href="#name-unsolicited-signed-websocke" class="selfRef">Unsolicited signed WebSocket request</a>
+          </figcaption></figure>
+</div>
+<p id="section-6.3-4">The server requires a fresh server nonce and challenges the client:<a href="#section-6.3-4" class="pilcrow">¶</a></p>
+<span id="name-websocket-challenge"></span><div id="example-ws-challenge">
+<figure id="figure-12">
+          <div class="alignLeft art-text artwork" id="section-6.3-5.1">
+<pre>
+NOTE: '\' line wrapping per RFC 8792
+
+HTTP/1.1 403 Forbidden
+Cache-Control: no-store
+Content-Length: 0
+Accept-Signature: sig1=("@method" "@authority" "@scheme" "@path" \
+  "@query" "upgrade" "sec-websocket-key" "sec-websocket-version");\
+  nonce="EAhASAIcKgZfGHxsn8qtTBT7Tlzlp0qg";created;expires;\
+  keyid="client-key";alg="ed25519"
+</pre>
+</div>
+<figcaption><a href="#figure-12" class="selfRef">Figure 12</a>:
+<a href="#name-websocket-challenge" class="selfRef">WebSocket challenge</a>
+          </figcaption></figure>
+</div>
+<p id="section-6.3-6">The client retries with the server-provided nonce and a new signature:<a href="#section-6.3-6" class="pilcrow">¶</a></p>
+<span id="name-signed-websocket-request"></span><div id="example-ws-signed">
+<figure id="figure-13">
+          <div class="alignLeft art-text artwork" id="section-6.3-7.1">
+<pre>
+NOTE: '\' line wrapping per RFC 8792
+
+GET /socket HTTP/1.1
+Host: chat.example
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dHVubmVsLWV4YW1wbGUtMg==
+Sec-WebSocket-Version: 13
+Signature-Input: sig1=("@method" "@authority" "@scheme" "@path" \
+  "@query" "upgrade" "sec-websocket-key" "sec-websocket-version");\
+  created=1791244800;expires=1791244860;\
+  nonce="EAhASAIcKgZfGHxsn8qtTBT7Tlzlp0qg";keyid="client-key";\
+  alg="ed25519"
+Signature: sig1=:3ZOPO6A4SOYlAca2kDi+aoVKqrkFovGYRBaoTxD5BXkSmUZuz/79uW\
+  4T8VAQmSc2RkdRsSdSG3okLyUM5IvfDQ==:
+</pre>
+</div>
+<figcaption><a href="#figure-13" class="selfRef">Figure 13</a>:
+<a href="#name-signed-websocket-request" class="selfRef">Signed WebSocket request</a>
+          </figcaption></figure>
+</div>
+<p id="section-6.3-8">After validation and authorization, the server switches protocols:<a href="#section-6.3-8" class="pilcrow">¶</a></p>
+<span id="name-websocket-success"></span><div id="example-ws-success">
+<figure id="figure-14">
+          <div class="alignLeft art-text artwork" id="section-6.3-9.1">
+<pre>
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: P8RU/XYB7aRBEQ1oQfgq2shti/c=
+</pre>
+</div>
+<figcaption><a href="#figure-14" class="selfRef">Figure 14</a>:
+<a href="#name-websocket-success" class="selfRef">WebSocket success</a>
+          </figcaption></figure>
+</div>
+</section>
+</div>
+</section>
+</div>
+<div id="security">
+<section id="section-7">
+      <h2 id="name-security-considerations">
+<a href="#section-7" class="section-number selfRef">7. </a><a href="#name-security-considerations" class="section-name selfRef">Security Considerations</a>
+      </h2>
+<p id="section-7-1">The security considerations of <span>[<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span> apply. A valid signature proves
+possession of the signing key; the server still needs a trusted association
+between that key and a client identity and an authorization decision for the
+requested tunnel. Components used in that decision need to be covered as
+specified in <a href="#covered-components" class="auto internal xref">Section 4.1</a>. Uncovered fields can be modified without
+invalidating the signature.<a href="#section-7-1" class="pilcrow">¶</a></p>
+<p id="section-7-2">Replay protection depends on bounded signature lifetimes and atomic single-use
+enforcement across all server instances that accept a signature. Random client
+nonces do not prevent replay without this state. Server-provided nonces also
+bind signatures to fresh challenges, but expiring, self-contained challenges
+still require single-use enforcement. Loss or eviction of replay state <span class="bcp14">MUST NOT</span> allow previously accepted requests to be accepted again; affected requests
+<span class="bcp14">MUST</span> be rejected until that protection can be guaranteed.<a href="#section-7-2" class="pilcrow">¶</a></p>
+<p id="section-7-3">Without TLS or equivalent channel protection, an attacker can capture a signed
+establishment request and replay it on another connection, racing the client.
+Atomic single-use enforcement accepts at most one copy, but cannot ensure that
+the legitimate client's copy wins. With either client-generated or
+server-provided nonces, the attacker can therefore obtain the tunnel if its
+copy is accepted first.<a href="#section-7-3" class="pilcrow">¶</a></p>
+<p id="section-7-4">For standard CONNECT, <code>@authority</code> identifies the tunnel destination, not the
+proxy. The <code>proxy-authority</code> parameter binds the signature to the intended
+proxy, provided both parties check it against their configuration. Proxies
+sharing an accepted identity and signing-key trust <span class="bcp14">MUST</span> coordinate replay
+protection if they can accept the same signature. The parameter does not bind
+a transport scheme or authenticate the proxy to the client, and does not
+prevent live relay to the intended proxy. Additional audience requirements,
+such as WIMSE's <code>wimse-aud</code>, continue to apply independently.<a href="#section-7-4" class="pilcrow">¶</a></p>
+<p id="section-7-5">This mechanism does not authenticate the server or protect tunnel traffic.
+Without a protected transport, credentials and request details are visible,
+and an active attacker can alter challenges or forge responses. An attacker
+can also relay a server's challenge to a legitimate client and use the signed
+response to establish a tunnel under the attacker's control. Fresh, single-use
+nonces do not prevent this live relay or subsequent tunnel hijacking. TLS or
+equivalent channel protection can address these risks without being a
+prerequisite for this mechanism.<a href="#section-7-5" class="pilcrow">¶</a></p>
+<p id="section-7-6">Clients need to apply their signing policy to challenges, including restrictions
+on keys and algorithms, rather than treating Accept-Signature as authority to
+use arbitrary credentials. Servers need to enforce their own coverage and
+algorithm requirements even if a challenge has been altered in transit.<a href="#section-7-6" class="pilcrow">¶</a></p>
+<p id="section-7-7">Challenge issuance, signature verification, and replay records can be used to
+exhaust server resources. Servers <span class="bcp14">SHOULD</span> bound authentication state and
+rate-limit authentication attempts. Resource limits <span class="bcp14">MUST NOT</span> cause requests
+to be accepted without replay checks.<a href="#section-7-7" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="iana">
+<section id="section-8">
+      <h2 id="name-iana-considerations">
+<a href="#section-8" class="section-number selfRef">8. </a><a href="#name-iana-considerations" class="section-name selfRef">IANA Considerations</a>
+      </h2>
+<p id="section-8-1">This document requests registration of the following entry in the "HTTP
+Signature Derived Component Names" registry established by
+<span><a href="https://rfc-editor.org/rfc/rfc9421#section-6.4" class="relref">Section 6.4</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>, using the template in
+<span><a href="https://rfc-editor.org/rfc/rfc9421#section-6.4.1" class="relref">Section 6.4.1</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>:<a href="#section-8-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-8-2.1">
+          <p id="section-8-2.1.1">Name: <code>@protocol</code><a href="#section-8-2.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-8-2.2">
+          <p id="section-8-2.2.1">Description: The value of the <code>:protocol</code> pseudo-header field in an extended
+CONNECT request<a href="#section-8-2.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-8-2.3">
+          <p id="section-8-2.3.1">Status: Active<a href="#section-8-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-8-2.4">
+          <p id="section-8-2.4.1">Target: Request<a href="#section-8-2.4.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-8-2.5">
+          <p id="section-8-2.5.1">Reference: <a href="#protocol-component" class="auto internal xref">Section 4.2</a> of this document<a href="#section-8-2.5.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+<p id="section-8-3">This document also requests registration of the following entry in the "HTTP
+Signature Metadata Parameters" registry established by <span><a href="https://rfc-editor.org/rfc/rfc9421#section-6.3" class="relref">Section 6.3</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>,
+using the template in <span><a href="https://rfc-editor.org/rfc/rfc9421#section-6.3.1" class="relref">Section 6.3.1</a> of [<a href="#HTTP-SIG" class="cite xref">HTTP-SIG</a>]</span>:<a href="#section-8-3" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-8-4.1">
+          <p id="section-8-4.1.1">Name: <code>proxy-authority</code><a href="#section-8-4.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-8-4.2">
+          <p id="section-8-4.2.1">Description: The hostname or IP address and explicit port of the intended
+proxy for a standard CONNECT request<a href="#section-8-4.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-8-4.3">
+          <p id="section-8-4.3.1">Reference: <a href="#proxy-authority" class="auto internal xref">Section 4.4</a> of this document<a href="#section-8-4.3.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+</section>
+</div>
+<div id="sec-combined-references">
+<section id="section-9">
+      <h2 id="name-references">
+<a href="#section-9" class="section-number selfRef">9. </a><a href="#name-references" class="section-name selfRef">References</a>
+      </h2>
+<div id="sec-normative-references">
+<section id="section-9.1">
+        <h3 id="name-normative-references">
+<a href="#section-9.1" class="section-number selfRef">9.1. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+        </h3>
+<dl class="references">
+<dt id="HTTP">[HTTP]</dt>
+        <dd>
+<span class="refAuthor">Fielding, R., Ed.</span>, <span class="refAuthor">Nottingham, M., Ed.</span>, and <span class="refAuthor">J. Reschke, Ed.</span>, <span class="refTitle">"HTTP Semantics"</span>, <span class="seriesInfo">STD 97</span>, <span class="seriesInfo">RFC 9110</span>, <span class="seriesInfo">DOI 10.17487/RFC9110</span>, <time datetime="2022-06" class="refDate">June 2022</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9110">https://www.rfc-editor.org/rfc/rfc9110</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="HTTP2-EXTCONNECT">[HTTP2-EXTCONNECT]</dt>
+        <dd>
+<span class="refAuthor">McManus, P.</span>, <span class="refTitle">"Bootstrapping WebSockets with HTTP/2"</span>, <span class="seriesInfo">RFC 8441</span>, <span class="seriesInfo">DOI 10.17487/RFC8441</span>, <time datetime="2018-09" class="refDate">September 2018</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8441">https://www.rfc-editor.org/rfc/rfc8441</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="HTTP3-EXTCONNECT">[HTTP3-EXTCONNECT]</dt>
+        <dd>
+<span class="refAuthor">Hamilton, R.</span>, <span class="refTitle">"Bootstrapping WebSockets with HTTP/3"</span>, <span class="seriesInfo">RFC 9220</span>, <span class="seriesInfo">DOI 10.17487/RFC9220</span>, <time datetime="2022-06" class="refDate">June 2022</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9220">https://www.rfc-editor.org/rfc/rfc9220</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="HTTP-SIG">[HTTP-SIG]</dt>
+        <dd>
+<span class="refAuthor">Backman, A., Ed.</span>, <span class="refAuthor">Richer, J., Ed.</span>, and <span class="refAuthor">M. Sporny</span>, <span class="refTitle">"HTTP Message Signatures"</span>, <span class="seriesInfo">RFC 9421</span>, <span class="seriesInfo">DOI 10.17487/RFC9421</span>, <time datetime="2024-02" class="refDate">February 2024</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9421">https://www.rfc-editor.org/rfc/rfc9421</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="IDNA">[IDNA]</dt>
+        <dd>
+<span class="refAuthor">Klensin, J.</span>, <span class="refTitle">"Internationalized Domain Names for Applications (IDNA): Definitions and Document Framework"</span>, <span class="seriesInfo">RFC 5890</span>, <span class="seriesInfo">DOI 10.17487/RFC5890</span>, <time datetime="2010-08" class="refDate">August 2010</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc5890">https://www.rfc-editor.org/rfc/rfc5890</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="IPV6-TEXT">[IPV6-TEXT]</dt>
+        <dd>
+<span class="refAuthor">Kawamura, S.</span> and <span class="refAuthor">M. Kawashima</span>, <span class="refTitle">"A Recommendation for IPv6 Address Text Representation"</span>, <span class="seriesInfo">RFC 5952</span>, <span class="seriesInfo">DOI 10.17487/RFC5952</span>, <time datetime="2010-08" class="refDate">August 2010</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc5952">https://www.rfc-editor.org/rfc/rfc5952</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC2119">[RFC2119]</dt>
+        <dd>
+<span class="refAuthor">Bradner, S.</span>, <span class="refTitle">"Key words for use in RFCs to Indicate Requirement Levels"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 2119</span>, <span class="seriesInfo">DOI 10.17487/RFC2119</span>, <time datetime="1997-03" class="refDate">March 1997</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc2119">https://www.rfc-editor.org/rfc/rfc2119</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8174">[RFC8174]</dt>
+      <dd>
+<span class="refAuthor">Leiba, B.</span>, <span class="refTitle">"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 8174</span>, <span class="seriesInfo">DOI 10.17487/RFC8174</span>, <time datetime="2017-05" class="refDate">May 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8174">https://www.rfc-editor.org/rfc/rfc8174</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</div>
+<div id="sec-informative-references">
+<section id="section-9.2">
+        <h3 id="name-informative-references">
+<a href="#section-9.2" class="section-number selfRef">9.2. </a><a href="#name-informative-references" class="section-name selfRef">Informative References</a>
+        </h3>
+<dl class="references">
+<dt id="CONNECT-UDP">[CONNECT-UDP]</dt>
+        <dd>
+<span class="refAuthor">Schinazi, D.</span>, <span class="refTitle">"Proxying UDP in HTTP"</span>, <span class="seriesInfo">RFC 9298</span>, <span class="seriesInfo">DOI 10.17487/RFC9298</span>, <time datetime="2022-08" class="refDate">August 2022</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9298">https://www.rfc-editor.org/rfc/rfc9298</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="FOLDING">[FOLDING]</dt>
+        <dd>
+<span class="refAuthor">Watsen, K.</span>, <span class="refAuthor">Auerswald, E.</span>, <span class="refAuthor">Farrel, A.</span>, and <span class="refAuthor">Q. Wu</span>, <span class="refTitle">"Handling Long Lines in Content of Internet-Drafts and RFCs"</span>, <span class="seriesInfo">RFC 8792</span>, <span class="seriesInfo">DOI 10.17487/RFC8792</span>, <time datetime="2020-06" class="refDate">June 2020</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8792">https://www.rfc-editor.org/rfc/rfc8792</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="WEBSOCKET">[WEBSOCKET]</dt>
+        <dd>
+<span class="refAuthor">Fette, I.</span> and <span class="refAuthor">A. Melnikov</span>, <span class="refTitle">"The WebSocket Protocol"</span>, <span class="seriesInfo">RFC 6455</span>, <span class="seriesInfo">DOI 10.17487/RFC6455</span>, <time datetime="2011-12" class="refDate">December 2011</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc6455">https://www.rfc-editor.org/rfc/rfc6455</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="WIMSE-CREDS">[WIMSE-CREDS]</dt>
+        <dd>
+<span class="refAuthor">Campbell, B.</span>, <span class="refAuthor">Salowey, J. A.</span>, <span class="refAuthor">Schwenkschuster, A.</span>, <span class="refAuthor">Sheffer, Y.</span>, and <span class="refAuthor">Y. Rosomakho</span>, <span class="refTitle">"WIMSE Workload Credentials"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-wimse-workload-creds-02</span>, <time datetime="2026-07-02" class="refDate">2 July 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-ietf-wimse-workload-creds-02">https://datatracker.ietf.org/doc/html/draft-ietf-wimse-workload-creds-02</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="WIMSE-HTTPSIG">[WIMSE-HTTPSIG]</dt>
+      <dd>
+<span class="refAuthor">Salowey, J. A.</span> and <span class="refAuthor">Y. Sheffer</span>, <span class="refTitle">"WIMSE Workload-to-Workload Authentication with HTTP Signatures"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-wimse-http-signature-07</span>, <time datetime="2026-09-20" class="refDate">20 September 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-ietf-wimse-http-signature-07">https://datatracker.ietf.org/doc/html/draft-ietf-wimse-http-signature-07</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</div>
+</section>
+</div>
+<div id="acknowledgments">
+<section id="appendix-A">
+      <h2 id="name-acknowledgments">
+<a href="#name-acknowledgments" class="section-name selfRef">Acknowledgments</a>
+      </h2>
+<p id="appendix-A-1">TODO acknowledge.<a href="#appendix-A-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="authors-addresses">
+<section id="appendix-B">
+      <h2 id="name-authors-address">
+<a href="#name-authors-address" class="section-name selfRef">Author's Address</a>
+      </h2>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Yaroslav Rosomakho</span></div>
+<div dir="auto" class="left"><span class="org">Zscaler</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:yrosomakho@zscaler.com" class="email">yrosomakho@zscaler.com</a>
+</div>
+</address>
+</section>
+</div>
+<script>const toc = document.getElementById("toc");
+toc.querySelector("h2").addEventListener("click", e => {
+  toc.classList.toggle("active");
+});
+toc.querySelector("nav").addEventListener("click", e => {
+  toc.classList.remove("active");
+});
+</script>
+</body>
+</html>
