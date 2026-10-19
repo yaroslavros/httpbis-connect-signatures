@@ -607,6 +607,13 @@ still require single-use enforcement. Loss or eviction of replay state MUST
 NOT allow previously accepted requests to be accepted again; affected requests
 MUST be rejected until that protection can be guaranteed.
 
+Without TLS or equivalent channel protection, an attacker can capture a signed
+establishment request and replay it on another connection, racing the client.
+Atomic single-use enforcement accepts at most one copy, but cannot ensure that
+the legitimate client's copy wins. With either client-generated or
+server-provided nonces, the attacker can therefore obtain the tunnel if its
+copy is accepted first.
+
 For standard CONNECT, `@authority` identifies the tunnel destination, not the
 proxy. The `proxy-authority` parameter binds the signature to the intended
 proxy, provided both parties check it against their configuration. Proxies
