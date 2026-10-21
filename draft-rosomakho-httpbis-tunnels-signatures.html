@@ -1993,30 +1993,36 @@ nonces do not prevent replay without this state. Server-provided nonces also
 bind signatures to fresh challenges, but expiring, self-contained challenges
 still require single-use enforcement. Loss or eviction of replay state <span class="bcp14">MUST NOT</span> allow previously accepted requests to be accepted again; affected requests
 <span class="bcp14">MUST</span> be rejected until that protection can be guaranteed.<a href="#section-7-2" class="pilcrow">¶</a></p>
-<p id="section-7-3">For standard CONNECT, <code>@authority</code> identifies the tunnel destination, not the
+<p id="section-7-3">Without TLS or equivalent channel protection, an attacker can capture a signed
+establishment request and replay it on another connection, racing the client.
+Atomic single-use enforcement accepts at most one copy, but cannot ensure that
+the legitimate client's copy wins. With either client-generated or
+server-provided nonces, the attacker can therefore obtain the tunnel if its
+copy is accepted first.<a href="#section-7-3" class="pilcrow">¶</a></p>
+<p id="section-7-4">For standard CONNECT, <code>@authority</code> identifies the tunnel destination, not the
 proxy. The <code>proxy-authority</code> parameter binds the signature to the intended
 proxy, provided both parties check it against their configuration. Proxies
 sharing an accepted identity and signing-key trust <span class="bcp14">MUST</span> coordinate replay
 protection if they can accept the same signature. The parameter does not bind
 a transport scheme or authenticate the proxy to the client, and does not
 prevent live relay to the intended proxy. Additional audience requirements,
-such as WIMSE's <code>wimse-aud</code>, continue to apply independently.<a href="#section-7-3" class="pilcrow">¶</a></p>
-<p id="section-7-4">This mechanism does not authenticate the server or protect tunnel traffic.
+such as WIMSE's <code>wimse-aud</code>, continue to apply independently.<a href="#section-7-4" class="pilcrow">¶</a></p>
+<p id="section-7-5">This mechanism does not authenticate the server or protect tunnel traffic.
 Without a protected transport, credentials and request details are visible,
 and an active attacker can alter challenges or forge responses. An attacker
 can also relay a server's challenge to a legitimate client and use the signed
 response to establish a tunnel under the attacker's control. Fresh, single-use
 nonces do not prevent this live relay or subsequent tunnel hijacking. TLS or
 equivalent channel protection can address these risks without being a
-prerequisite for this mechanism.<a href="#section-7-4" class="pilcrow">¶</a></p>
-<p id="section-7-5">Clients need to apply their signing policy to challenges, including restrictions
+prerequisite for this mechanism.<a href="#section-7-5" class="pilcrow">¶</a></p>
+<p id="section-7-6">Clients need to apply their signing policy to challenges, including restrictions
 on keys and algorithms, rather than treating Accept-Signature as authority to
 use arbitrary credentials. Servers need to enforce their own coverage and
-algorithm requirements even if a challenge has been altered in transit.<a href="#section-7-5" class="pilcrow">¶</a></p>
-<p id="section-7-6">Challenge issuance, signature verification, and replay records can be used to
+algorithm requirements even if a challenge has been altered in transit.<a href="#section-7-6" class="pilcrow">¶</a></p>
+<p id="section-7-7">Challenge issuance, signature verification, and replay records can be used to
 exhaust server resources. Servers <span class="bcp14">SHOULD</span> bound authentication state and
 rate-limit authentication attempts. Resource limits <span class="bcp14">MUST NOT</span> cause requests
-to be accepted without replay checks.<a href="#section-7-6" class="pilcrow">¶</a></p>
+to be accepted without replay checks.<a href="#section-7-7" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="iana">
