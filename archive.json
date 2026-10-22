@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2026-10-20T04:01:47.060092+00:00",
+  "timestamp": "2026-10-22T03:50:44.991784+00:00",
   "repo": "yaroslavros/httpbis-connect-signatures",
   "labels": [
     {
@@ -61,26 +61,84 @@
       "id": "PR_kwDOU9YfIM8AAAABJa-Tjw",
       "title": "Added stronger TLS security consideration",
       "url": "https://github.com/yaroslavros/httpbis-connect-signatures/pull/1",
-      "state": "OPEN",
+      "state": "MERGED",
       "author": "yaroslavros",
       "authorAssociation": "OWNER",
       "assignees": [],
       "labels": [],
       "body": "",
       "createdAt": "2026-10-19T20:49:23Z",
-      "updatedAt": "2026-10-19T20:49:23Z",
+      "updatedAt": "2026-10-21T16:37:25Z",
       "baseRepository": "yaroslavros/httpbis-connect-signatures",
       "baseRefName": "main",
       "baseRefOid": "60916766fa4c7ed601689dc70c55b16bbeb0e80a",
       "headRepository": "yaroslavros/httpbis-connect-signatures",
       "headRefName": "security",
       "headRefOid": "26bf7b944c167d3e8bae0ed6e58d99ab9a333811",
-      "closedAt": null,
-      "mergedAt": null,
-      "mergedBy": null,
-      "mergeCommit": null,
+      "closedAt": "2026-10-21T16:37:25Z",
+      "mergedAt": "2026-10-21T16:37:25Z",
+      "mergedBy": "yaroslavros",
+      "mergeCommit": {
+        "oid": "75fb96c6ea0f1f52745799ced685a851d3f0963a"
+      },
       "comments": [],
-      "reviews": []
+      "reviews": [
+        {
+          "id": "PRR_kwDOU9YfIM8AAAABTT9_ZQ",
+          "commit": {
+            "abbreviatedOid": "26bf7b9"
+          },
+          "author": "arndt-s",
+          "authorAssociation": "COLLABORATOR",
+          "state": "APPROVED",
+          "body": "",
+          "createdAt": "2026-10-20T20:03:12Z",
+          "updatedAt": "2026-10-20T20:03:12Z",
+          "comments": []
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "id": "PR_kwDOU9YfIM8AAAABJo0Zww",
+      "title": "Add myself as co-author",
+      "url": "https://github.com/yaroslavros/httpbis-connect-signatures/pull/2",
+      "state": "MERGED",
+      "author": "arndt-s",
+      "authorAssociation": "COLLABORATOR",
+      "assignees": [],
+      "labels": [],
+      "body": "",
+      "createdAt": "2026-10-20T20:05:16Z",
+      "updatedAt": "2026-10-21T16:37:09Z",
+      "baseRepository": "yaroslavros/httpbis-connect-signatures",
+      "baseRefName": "main",
+      "baseRefOid": "60916766fa4c7ed601689dc70c55b16bbeb0e80a",
+      "headRepository": "arndt-s/httpbis-connect-signatures",
+      "headRefName": "arndt/add_myself_as_co_author",
+      "headRefOid": "891981fd44934fdb9e11f2dab6c623f55ead812c",
+      "closedAt": "2026-10-21T16:37:09Z",
+      "mergedAt": "2026-10-21T16:37:09Z",
+      "mergedBy": "yaroslavros",
+      "mergeCommit": {
+        "oid": "842c2f73993bb9d88d0529b275eb1b3bc549eaa4"
+      },
+      "comments": [],
+      "reviews": [
+        {
+          "id": "PRR_kwDOU9YfIM8AAAABTfa32g",
+          "commit": {
+            "abbreviatedOid": "891981f"
+          },
+          "author": "yaroslavros",
+          "authorAssociation": "OWNER",
+          "state": "APPROVED",
+          "body": "",
+          "createdAt": "2026-10-21T16:36:57Z",
+          "updatedAt": "2026-10-21T16:36:57Z",
+          "comments": []
+        }
+      ]
     }
   ]
 }
